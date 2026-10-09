@@ -17,6 +17,12 @@
 > either/or: idle -> bubble only; watching -> Watching text only (no
 > bubble). This matches the original pre-rich behavior that was known
 > to work.
+>
+> RETRY (same day, Wisnu's call): the 2-activity rule suggests rich itself
+> was never broken — it was just always sent as the 2nd activity. Retrying
+> rich as the SOLE activity when watching (either/or: idle -> bubble,
+> watching -> rich card alone, no bubble). If the card renders this time,
+> the rule is confirmed.
 
 Checked against discord.js v14 source installed in this repo (2026-10-09).
 
