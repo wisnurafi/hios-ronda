@@ -126,7 +126,7 @@ async function notifyLive(guild, member, voiceChannel) {
   if (!ch) return;
   try {
     await ch.send({
-      content: `🔴 @here <@${member.id}> lagi live di **#${voiceChannel.name}** — join buat nonton!`,
+      content: `🔴 @here <@${member.id}> is live in **#${voiceChannel.name}** — join to watch!`,
       allowedMentions: { parse: ["everyone", "users"] },
     });
   } catch (err) {
@@ -138,7 +138,7 @@ async function notifyEnded(guild, member) {
   const ch = await getNotifyChannel(guild);
   if (!ch) return;
   try {
-    await ch.send({ content: `⚫ **${member.displayName}** selesai streaming.` });
+    await ch.send({ content: `⚫ **${member.displayName}** finished streaming.` });
   } catch (err) {
     log(`notify failed in ${guild.id}:`, err.message);
   }

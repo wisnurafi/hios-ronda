@@ -1,45 +1,47 @@
 # hios-ronda
 
-Bot patroli Go Live buat Discord. Kalau ada yang mulai streaming (Go Live) di voice channel mana pun, bot otomatis join ke channel itu — presence + auto manage, plus notifikasi `@here` ke public chat.
+Patrol bot for Discord Go Live streams. When someone starts streaming (Go Live) in any voice channel, the bot automatically joins that channel — presence + auto-management, plus an `@here` notification to the public chat.
 
-> Catatan jujur: bot Discord nggak bisa "nonton" video stream lewat API resmi. Yang dilakuin bot ini: join voice channel si streamer sebagai presence + ngatur antrean otomatis.
+> Honest note: Discord bots can't "watch" a video stream through the official API. What this bot does: join the streamer's voice channel as presence + manage the queue automatically.
 
-## Cara kerja
+## How it works
 
-- Trigger: `voiceStateUpdate` → `self_stream = true`, di channel mana pun.
-- Antrean FIFO per server: yang live duluan yang dilayani (bot cuma 1, cuma bisa di 1 voice channel per server).
-- Stream berhenti → grace period 5 detik (anti toggle iseng) → bot leave → pindah ke antrean berikutnya yang masih live.
-- Channel di-private/lock sehingga bot nggak bisa join → di-skip, lanjut ke antrean berikutnya.
-- Streamer pindah channel pas lagi live → bot leave, **nggak** ngikutin. Join lagi cuma kalau ada event Go Live baru.
-- Streamer stop tapi masih di voice → bot leave (setelah grace).
-- Bot nggak pernah nahan temp channel: dia leave begitu stream selesai, jadi auto-delete channel tetap jalan normal.
-- Notifikasi ke public chat (mention streamer + `@here`): `🔴 @here @philip lagi live di **#channel** — join buat nonton!` (+ `⚫ **Nama** selesai streaming.` pas berhenti).
+- Trigger: `voiceStateUpdate` → `self_stream = true`, in any channel.
+- FIFO queue per server: whoever goes live first gets the bot (one bot, one voice channel per server).
+- Stream stops → 5-second grace period (anti accidental toggles) → bot leaves → moves to the next streamer still live in the queue.
+- Private/locked channel the bot can't join → skipped, move to next in queue.
+- Streamer moves channel mid-live → bot leaves, does **not** follow. It only joins again on a fresh Go Live event.
+- Streamer stops but stays in voice → bot leaves (after grace).
+- The bot never holds a temp channel hostage: it leaves as soon as the stream ends, so channel auto-delete keeps working.
+- Notifications to the public chat (streamer mention + `@here`): `🔴 @here @philip is live in **#channel** — join to watch!` (+ `⚫ **Name** finished streaming.` when they stop).
 
-### Kenapa nggak pakai @discordjs/voice?
+### Why not @discordjs/voice?
 
-Bot ini presence-only — nggak butuh audio sama sekali. Jadi presence dikirim manual via gateway opcode 4 (voice state update), tanpa koneksi UDP voice. Ini bikin bot imun terhadap hosting yang ngeblok UDP (gejala klasiknya: bot join terus "keluar sendiri" karena handshake voice timeout). Trade-off: bot nggak bisa kirim/terima audio — yang memang nggak dibutuhin di sini.
+This bot is presence-only — it never needs audio. So presence is sent manually via gateway opcode 4 (voice state update), with no UDP voice connection. This makes the bot immune to hosts that block UDP (the classic symptom: bot joins then "leaves by itself" because the voice handshake times out). Trade-off: the bot can't send/receive audio — which isn't needed here anyway.
 
 ## Setup
 
-1. Buat aplikasi + bot di [Discord Developer Portal](https://discord.com/developers/applications), copy token-nya.
-2. Invite bot dengan scope `bot` + permission: **View Channels**, **Connect** (voice), **Send Messages**. Intent yang dipakai: `Guilds`, `GuildVoiceStates` (dua-duanya non-privileged, nggak perlu toggle khusus).
-3. Di server hosting:
+1. Create an application + bot in the [Discord Developer Portal](https://discord.com/developers/applications), copy the token.
+2. Invite the bot with the `bot` scope + permissions: **View Channels**, **Connect** (voice), **Send Messages**. Intents used: `Guilds`, `GuildVoiceStates` (both non-privileged, no special toggle needed).
+3. On the hosting server:
 
 ```bash
 npm install
 cp .env.example .env
-# isi BOT_TOKEN di .env
+# fill in BOT_TOKEN in .env
 npm start
 ```
 
+Node.js 20+ required.
+
 ## Env vars
 
-| Var | Wajib | Default | Keterangan |
-|-----|-------|---------|------------|
-| `BOT_TOKEN` | ya | – | Token bot Discord |
-| `NOTIFY_CHANNEL_ID` | tidak | `1400349914155847744` | Channel teks buat notifikasi live |
-| `LEAVE_GRACE_MS` | tidak | `5000` | Grace period sebelum leave pas stream berhenti (ms) |
+| Var | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `BOT_TOKEN` | yes | – | Discord bot token |
+| `NOTIFY_CHANNEL_ID` | no | `1400349914155847744` | Text channel for live notifications |
+| `LEAVE_GRACE_MS` | no | `5000` | Grace period before leaving after a stream stops (ms) |
 
 ## Resource
 
-Ringan: cuma event gateway + presence via opcode 4 (tanpa koneksi audio/UDP). Aman buat tier gratisan, termasuk host yang ngeblok UDP.
+Lightweight: only gateway events + presence via opcode 4 (no audio/UDP connection). Safe for free tiers, including hosts that block UDP.
