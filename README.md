@@ -13,8 +13,11 @@ Bot patroli Go Live buat Discord. Kalau ada yang mulai streaming (Go Live) di vo
 - Streamer pindah channel pas lagi live → bot leave, **nggak** ngikutin. Join lagi cuma kalau ada event Go Live baru.
 - Streamer stop tapi masih di voice → bot leave (setelah grace).
 - Bot nggak pernah nahan temp channel: dia leave begitu stream selesai, jadi auto-delete channel tetap jalan normal.
-- Koneksi voice putus tiba-tiba → bot coba reconnect sendiri.
-- Notifikasi ke public chat: `🔴 @here **Nama** lagi live di **#channel**` (+ `⚫ **Nama** selesai streaming.` pas berhenti).
+- Notifikasi ke public chat (mention streamer + `@here`): `🔴 @here @philip lagi live di **#channel** — join buat nonton!` (+ `⚫ **Nama** selesai streaming.` pas berhenti).
+
+### Kenapa nggak pakai @discordjs/voice?
+
+Bot ini presence-only — nggak butuh audio sama sekali. Jadi presence dikirim manual via gateway opcode 4 (voice state update), tanpa koneksi UDP voice. Ini bikin bot imun terhadap hosting yang ngeblok UDP (gejala klasiknya: bot join terus "keluar sendiri" karena handshake voice timeout). Trade-off: bot nggak bisa kirim/terima audio — yang memang nggak dibutuhin di sini.
 
 ## Setup
 
@@ -39,4 +42,4 @@ npm start
 
 ## Resource
 
-Ringan: cuma event gateway + 1 koneksi voice (tanpa receive/decode audio). Aman buat tier gratisan.
+Ringan: cuma event gateway + presence via opcode 4 (tanpa koneksi audio/UDP). Aman buat tier gratisan, termasuk host yang ngeblok UDP.

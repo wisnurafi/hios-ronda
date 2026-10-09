@@ -12,8 +12,14 @@
  * - Streamer stops but stays in voice -> bot leaves (after grace).
  * - Bot never blocks temp-channel auto-delete: it leaves as soon as the
  *   stream is over, so it is never the last member keeping a channel alive.
- * - Auto-reconnect if the voice connection drops unexpectedly.
- * - Sends a @here notification to the configured public chat on live start.
+ * - Sends a @here notification (mentioning the streamer) to the configured
+ *   public chat on live start AND on stream end.
+ *
+ * Presence method: manual gateway opcode 4 (voice state update).
+ * This bot is presence-only — it never touches audio — so there is no
+ * @discordjs/voice, no UDP, no libsodium. That makes it immune to hosts
+ * that block UDP voice traffic (the classic "bot joins then leaves"
+ * timeout loop). Trade-off: the bot cannot send or receive any audio.
  */
 
 const {
@@ -23,12 +29,6 @@ const {
   PermissionFlagsBits,
   ChannelType,
 } = require("discord.js");
-const {
-  joinVoiceChannel,
-  getVoiceConnection,
-  VoiceConnectionStatus,
-  entersState,
-} = require("@discordjs/voice");
 const config = require("./src/config");
 
 const client = new Client({
@@ -37,10 +37,10 @@ const client = new Client({
 
 /**
  * Per-guild state. A bot can only be in one voice channel per guild,
- * so each guild gets its own queue + connection tracking.
+ * so each guild gets its own queue + presence tracking.
  * {
  *   queue: [{ userId, channelId, startedAt }],  // FIFO, head = served first
- *   currentKey: string | null,                  // queue key currently served
+ *   presenceChannelId: string | null,           // where our op-4 says we are
  *   leaveTimers: Map<userId, Timeout>,
  * }
  */
@@ -49,14 +49,62 @@ const guilds = new Map();
 function getState(guildId) {
   let s = guilds.get(guildId);
   if (!s) {
-    s = { queue: [], currentKey: null, leaveTimers: new Map() };
+    s = { queue: [], presenceChannelId: null, leaveTimers: new Map() };
     guilds.set(guildId, s);
   }
   return s;
 }
 
-const keyOf = (entry) => `${entry.guildId}:${entry.userId}`;
 const log = (...args) => console.log("[ronda]", ...args);
+
+/* ------------------------------------------------------------------ */
+/* presence (manual gateway opcode 4 — no audio, no UDP)                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Join/leave a voice channel by sending a raw voice-state update.
+ * This is exactly what a voice library does for the "join" half,
+ * minus the media connection we will never use.
+ */
+async function setPresence(guild, channelId) {
+  const shard = guild.shard;
+  if (!shard) {
+    log(`no shard for guild ${guild.id}, presence not sent`);
+    return false;
+  }
+  try {
+    await shard.send({
+      op: 4,
+      d: {
+        guild_id: guild.id,
+        channel_id: channelId,
+        self_mute: true,
+        self_deaf: true,
+      },
+    });
+    getState(guild.id).presenceChannelId = channelId;
+    return true;
+  } catch (err) {
+    log(`presence update failed: ${err.message}`);
+    return false;
+  }
+}
+
+function canJoin(guild, channelId) {
+  const channel = guild.channels.cache.get(channelId);
+  if (!channel || channel.type !== ChannelType.GuildVoice) return null;
+  const me = guild.members.me;
+  if (!me) return null;
+  if (!channel.joinable) {
+    log(`skip #${channel.name}: not joinable (private/full/no perms)`);
+    return null;
+  }
+  if (!channel.permissionsFor(me).has(PermissionFlagsBits.Connect)) {
+    log(`skip #${channel.name}: missing Connect permission`);
+    return null;
+  }
+  return channel;
+}
 
 /* ------------------------------------------------------------------ */
 /* notifications                                                       */
@@ -78,8 +126,8 @@ async function notifyLive(guild, member, voiceChannel) {
   if (!ch) return;
   try {
     await ch.send({
-      content: `🔴 @here **${member.displayName}** lagi live di **#${voiceChannel.name}** — join buat nonton!`,
-      allowedMentions: { parse: ["everyone"] },
+      content: `🔴 @here <@${member.id}> lagi live di **#${voiceChannel.name}** — join buat nonton!`,
+      allowedMentions: { parse: ["everyone", "users"] },
     });
   } catch (err) {
     log(`notify failed in ${guild.id}:`, err.message);
@@ -97,129 +145,38 @@ async function notifyEnded(guild, member) {
 }
 
 /* ------------------------------------------------------------------ */
-/* voice connection                                                    */
-/* ------------------------------------------------------------------ */
-
-function leaveVoice(guildId) {
-  const conn = getVoiceConnection(guildId);
-  if (conn) {
-    try {
-      conn.destroy();
-    } catch {
-      // already gone
-    }
-  }
-  const s = guilds.get(guildId);
-  if (s) s.currentKey = null;
-}
-
-/**
- * Try to join a voice channel. Returns true on success.
- * Returns false (without throwing) when the bot simply can't join —
- * caller then skips to the next streamer in the queue.
- */
-async function tryJoin(guild, channelId) {
-  const channel = guild.channels.cache.get(channelId);
-  if (!channel || channel.type !== ChannelType.GuildVoice) return false;
-
-  const me = guild.members.me;
-  if (!me) return false;
-  if (!channel.joinable) {
-    log(`skip ${channel.name}: not joinable (private/full/no perms)`);
-    return false;
-  }
-  if (!channel.permissionsFor(me).has(PermissionFlagsBits.Connect)) {
-    log(`skip ${channel.name}: missing Connect permission`);
-    return false;
-  }
-
-  const connection = joinVoiceChannel({
-    channelId: channel.id,
-    guildId: guild.id,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf: true,
-    selfMute: true,
-  });
-
-  // Guard against unexpected drops: if the connection dies while this
-  // streamer is still the head of the queue, try to get back in.
-  connection.on(VoiceConnectionStatus.Disconnected, async () => {
-    try {
-      await Promise.race([
-        entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-        entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
-      ]);
-      // reconnected on its own — nothing to do
-    } catch {
-      const s = guilds.get(guild.id);
-      const head = s && s.queue[0];
-      const connNow = getVoiceConnection(guild.id);
-      if (connNow && connNow.state.status === VoiceConnectionStatus.Destroyed) return;
-      try {
-        connection.destroy();
-      } catch {
-        // ignore
-      }
-      if (s) s.currentKey = null;
-      if (head) {
-        log(`connection lost while serving ${head.userId}, re-queueing head`);
-        await reconcile(guild); // rejoin if the streamer is still live
-      }
-    }
-  });
-
-  connection.on("error", (err) => log(`voice connection error: ${err.message}`));
-
-  try {
-    await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
-    return true;
-  } catch {
-    log(`join ${channel.name} timed out`);
-    try {
-      connection.destroy();
-    } catch {
-      // ignore
-    }
-    return false;
-  }
-}
-
-/* ------------------------------------------------------------------ */
 /* queue + reconciliation                                              */
 /* ------------------------------------------------------------------ */
 
 /**
- * Make reality match the queue head: the bot should be in the voice
- * channel of queue[0], and nowhere else. Skips entries it can't join.
+ * Make reality match the queue head: our presence should be in the voice
+ * channel of queue[0], and nowhere else. Skips entries we can't join.
  */
 async function reconcile(guild) {
   const s = getState(guild.id);
-  const head = s.queue[0] || null;
-  const headKey = head ? `${guild.id}:${head.userId}` : null;
 
-  if (headKey && headKey === s.currentKey) return; // already serving
-
-  // leave wherever we are
-  if (s.currentKey) leaveVoice(guild.id);
-
-  // walk the queue until someone is joinable
   while (s.queue.length > 0) {
-    const next = s.queue[0];
-    const ok = await tryJoin(guild, next.channelId);
-    if (ok) {
-      s.currentKey = `${guild.id}:${next.userId}`;
-      const channel = guild.channels.cache.get(next.channelId);
-      const member = guild.members.cache.get(next.userId);
-      log(`now watching ${member ? member.displayName : next.userId} in #${channel ? channel.name : next.channelId}`);
-      if (member && channel) await notifyLive(guild, member, channel);
-      return;
+    const head = s.queue[0];
+    const channel = canJoin(guild, head.channelId);
+    if (!channel) {
+      s.queue.shift(); // can't join -> drop, try next
+      clearLeaveTimer(guild.id, head.userId);
+      continue;
     }
-    // can't join -> drop and try the next one
-    s.queue.shift();
-    clearLeaveTimer(guild.id, next.userId);
+    if (s.presenceChannelId === channel.id) return; // already there
+    const ok = await setPresence(guild, channel.id);
+    if (ok) {
+      const member = guild.members.cache.get(head.userId);
+      log(`now watching ${member ? member.displayName : head.userId} in #${channel.name}`);
+    }
+    return;
   }
 
-  s.currentKey = null;
+  // queue empty -> make sure we're out
+  if (s.presenceChannelId) {
+    await setPresence(guild, null);
+    log("queue empty -> left voice");
+  }
 }
 
 function clearLeaveTimer(guildId, userId) {
@@ -245,8 +202,15 @@ function removeFromQueue(guild, userId) {
 /* events                                                              */
 /* ------------------------------------------------------------------ */
 
-client.once(Events.ClientReady, (c) => {
+client.once(Events.ClientReady, async (c) => {
   log(`online as ${c.user.tag}`);
+  // Fresh identify clears voice states server-side, so re-assert presence
+  // for every guild that still has a live queue.
+  for (const [guildId, s] of guilds) {
+    s.presenceChannelId = null;
+    const guild = c.guilds.cache.get(guildId);
+    if (guild && s.queue.length > 0) await reconcile(guild);
+  }
 });
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
@@ -288,6 +252,7 @@ async function handleVoiceStateUpdate(oldState, newState) {
       // keep FIFO by live-start order
       s.queue.sort((a, b) => a.startedAt - b.startedAt);
       log(`${member.displayName} went live in #${newState.channel.name} (queue: ${s.queue.length})`);
+      await notifyLive(guild, member, newState.channel);
     } else {
       // re-live during grace: refresh channel in case it changed
       const entry = s.queue.find((e) => e.userId === userId);
@@ -317,7 +282,7 @@ async function handleVoiceStateUpdate(oldState, newState) {
     const timer = setTimeout(async () => {
       s.leaveTimers.delete(userId);
       try {
-        const st = newState.guild?.members.cache.get(userId)?.voice;
+        const st = guild.members.cache.get(userId)?.voice;
         if (st && st.streaming) {
           log(`${member.displayName} is live again, grace cancelled`);
           return; // live again — stay
