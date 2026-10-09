@@ -47,11 +47,16 @@ function bubbleActivity(statusConfig) {
 }
 
 /** Rich "watching X live" card shown while someone is live. */
-function watchActivity(member, head, guild) {
+function watchActivity(member, head, guild, applicationId) {
   const channelName = guild.channels.cache.get(head.channelId)?.name || "voice";
   return {
     name: `${member.displayName} live`,
     type: ActivityType.Watching,
+    // Required for the client to render this as a rich card and resolve
+    // the art asset keys against our application. Every working rich
+    // presence (game SDK, RPC tools, gateway examples) carries this.
+    // For bots the user id IS the application id.
+    application_id: applicationId,
     details: `Live in #${channelName}`,
     state: "come watch together",
     timestamps: { start: head.startedAt }, // elapsed timer since they went live
@@ -75,7 +80,7 @@ async function applyPresence(client, config) {
 
   const watch = resolveWatchTarget(client);
   if (watch) {
-    activities.push(watchActivity(watch.member, watch.head, watch.guild));
+    activities.push(watchActivity(watch.member, watch.head, watch.guild, client.user.id));
     log(`presence: watching ${watch.member.displayName} (rich)`);
   } else {
     log(`presence: idle, bubble "${statusConfig.text}"`);

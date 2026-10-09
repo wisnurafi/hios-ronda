@@ -57,6 +57,11 @@ owner for presence.
    server-side (they were abused). Don't design around buttons.
 4. Large/small images, details, state, timestamps, party — all fine
    for bots.
+5. **`application_id` is REQUIRED on the rich activity.** Every working
+   rich presence (game SDK, RPC tools, gateway examples) carries it; without
+   it the client does not render the card as rich (2026-10-10: confirmed —
+   card missing until we added it). For bots the user id IS the application
+   id, so send `application_id: client.user.id`.
 
 ## Checklist to enable
 
