@@ -20,12 +20,35 @@ function counterLabel(cfg) {
   return `${noun}: ${cfg.catches}`;
 }
 
+// Bolded punishment phrase, follows the configured action.
+function actionPhrase(action) {
+  return (
+    {
+      ban: "**an immediate ban**",
+      kick: "**an immediate kick**",
+      timeout: "**an immediate softban**",
+    }[action] || "**an immediate ban**"
+  );
+}
+
+/**
+ * Render the warning description. Supports the {action} placeholder;
+ * also upgrades the legacy hardcoded "an immediate ban" text from
+ * earlier versions.
+ */
+function renderWarningDescription(cfg) {
+  const phrase = actionPhrase(cfg.action);
+  const desc = cfg.warningDescription || "";
+  if (desc.includes("{action}")) return desc.replaceAll("{action}", phrase);
+  return desc.replace("an immediate ban", phrase);
+}
+
 /** Build the warning embed + counter button (mirrors the reference). */
 function buildWarning(cfg) {
   const attachment = new AttachmentBuilder(HONEYPOT_PNG, { name: "honeypot.png" });
   const embed = new EmbedBuilder()
     .setTitle(cfg.warningTitle)
-    .setDescription(cfg.warningDescription)
+    .setDescription(renderWarningDescription(cfg))
     .setThumbnail("attachment://honeypot.png")
     .setTimestamp();
   const counterBtn = new ButtonBuilder()

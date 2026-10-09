@@ -20,7 +20,7 @@ function defaults() {
     logsWebhookToken: null,
     warningTitle: "DO NOT SEND MESSAGES IN THIS CHANNEL",
     warningDescription:
-      "This channel is used to catch spam bots. Any messages sent here will result in an immediate ban.",
+      "This channel is used to catch spam bots. Any messages sent here will result in {action}.",
     catches: 0,
   };
 }

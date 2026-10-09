@@ -152,17 +152,15 @@ function backRow(guildId) {
 async function showModal(interaction, modalId, title, inputs) {
   const modal = new ModalBuilder().setCustomId(modalId).setTitle(title);
   for (const inp of inputs) {
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId(inp.id)
-          .setLabel(inp.label)
-          .setStyle(inp.style || TextInputStyle.Short)
-          .setRequired(inp.required ?? true)
-          .setValue(inp.value || "")
-          .setMaxLength(inp.maxLength || 500)
-      )
-    );
+    const textInput = new TextInputBuilder()
+      .setCustomId(inp.id)
+      .setLabel(inp.label)
+      .setStyle(inp.style || TextInputStyle.Short)
+      .setRequired(inp.required ?? true)
+      .setValue(inp.value || "")
+      .setMaxLength(inp.maxLength || 500);
+    if (inp.placeholder) textInput.setPlaceholder(inp.placeholder);
+    modal.addComponents(new ActionRowBuilder().addComponents(textInput));
   }
   await interaction.showModal(modal);
   const submitted = await interaction
@@ -378,6 +376,7 @@ async function handleComponent(i, guild, rootInteraction) {
           style: TextInputStyle.Paragraph,
           value: cfg.warningDescription,
           maxLength: 2000,
+          placeholder: "Tip: use {action} for the dynamic punishment phrase",
         },
       ]);
       if (submitted) {
@@ -410,6 +409,13 @@ async function handleComponent(i, guild, rootInteraction) {
       forgetLogsWebhook(guild.id); // new channel -> new webhook
     } else if (pickKind === "action") {
       updateConfig(guild.id, { action: i.values[0] });
+      // refresh the posted warning so the {action} phrase follows the new action
+      try {
+        const { setupHoneypot } = require("./setup");
+        await setupHoneypot(guild, getConfig(guild.id));
+      } catch (err) {
+        log("warning refresh failed:", err.message);
+      }
     } else if (pickKind === "exempt_role_add") {
       updateConfig(guild.id, { exemptRoles: [...new Set([...c.exemptRoles, ...i.values])] });
     } else if (pickKind === "exempt_role_remove") {
