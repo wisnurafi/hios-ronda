@@ -34,6 +34,30 @@ npm start
 
 Node.js 20+ required.
 
+## Project structure
+
+```
+hios-ronda/
+  index.js                  # entrypoint (repo root — hosting requirement), wires features
+  src/
+    config.js               # all env config (bot, notify, grace, status)
+    log.js                  # log helper
+    client.js               # Discord client factory
+    features/
+      status/               # custom status (like hios-bot), configurable via env
+        index.js
+      streamwatch/          # auto-join whoever is live
+        index.js            # event wiring
+        state.js            # per-guild FIFO queue
+        presence.js         # voice presence via gateway opcode 4
+        reconcile.js        # queue -> presence sync
+        notify.js           # live/end notifications
+        handler.js          # voiceStateUpdate logic
+```
+
+New features go under `src/features/<name>/` with an `index.js` exposing
+`register(client, config)`, then one line in the root `index.js`.
+
 ## Env vars
 
 | Var | Required | Default | Description |
@@ -41,6 +65,9 @@ Node.js 20+ required.
 | `BOT_TOKEN` | yes | – | Discord bot token |
 | `NOTIFY_CHANNEL_ID` | no | `1400349914155847744` | Text channel for live notifications |
 | `LEAVE_GRACE_MS` | no | `5000` | Grace period before leaving after a stream stops (ms) |
+| `STATUS_TEXT` | no | `on patrol` | Custom status text |
+| `STATUS_TYPE` | no | `4` (Custom) | `0`=Playing `1`=Streaming `2`=Listening `3`=Watching `4`=Custom `5`=Competing (number or name) |
+| `STATUS_MODE` | no | `online` | `online` \| `idle` \| `dnd` \| `invisible` |
 
 ## Resource
 
