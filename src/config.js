@@ -44,6 +44,9 @@ module.exports = {
     // 0=Playing 1=Streaming 2=Listening 3=Watching 4=Custom 5=Competing
     // (number or name, e.g. STATUS_TYPE=watching)
     type: parseActivityType(process.env.STATUS_TYPE, 4),
+    // Stream URL — only used when STATUS_TYPE=streaming (1).
+    // Must be a valid Twitch/YouTube URL or Discord won't render it as "Streaming".
+    url: (process.env.STATUS_URL || "").trim() || null,
     // online | idle | dnd | invisible
     mode: parseStatusMode(process.env.STATUS_MODE, "online"),
   },

@@ -20,6 +20,11 @@ function applyCustomStatus(client, statusConfig) {
       ? { name: "Custom Status", state: statusConfig.text, type: ActivityType.Custom }
       : { name: statusConfig.text, type: statusConfig.type };
 
+  // Streaming activities need a valid stream URL to render properly.
+  if (statusConfig.type === ActivityType.Streaming && statusConfig.url) {
+    activity.url = statusConfig.url;
+  }
+
   client.user.setPresence({ status: statusConfig.mode, activities: [activity] });
   log(`status set: [${statusConfig.mode}] type=${statusConfig.type} "${statusConfig.text}"`);
 }
