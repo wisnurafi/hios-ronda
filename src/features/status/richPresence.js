@@ -16,12 +16,6 @@ const { forEachState } = require("../streamwatch/state");
  * bubble alone and watching sends the rich card alone.
  */
 
-// Art asset keys — must be uploaded in the Developer Portal →
-// your application → Rich Presence → Art Assets. Until they exist,
-// Discord simply renders the card without images (graceful).
-const LARGE_IMAGE_KEY = "movie";
-const SMALL_IMAGE_KEY = "eye";
-
 /** Find who the bot is currently watching (head of a live queue), if anyone. */
 function resolveWatchTarget(client) {
   let found = null;
@@ -49,26 +43,20 @@ function bubbleActivity(statusConfig) {
   return activity;
 }
 
-/** Rich "watching X live" card shown while someone is live. */
+/** Rich "watching X live" card shown while someone is live.
+ * Text-only: art assets never loaded on the card in QA, so images were
+ * dropped entirely (2026-10-10). Details also dropped — the channel is
+ * already in the name. */
 function watchActivity(member, head, guild, applicationId) {
   const channelName = guild.channels.cache.get(head.channelId)?.name || "voice";
   return {
-    name: `${member.displayName} live`,
+    name: `👀 ${member.displayName} live in #${channelName}`,
     type: ActivityType.Watching,
-    // Required for the client to render this as a rich card and resolve
-    // the art asset keys against our application. Every working rich
-    // presence (game SDK, RPC tools, gateway examples) carries this.
-    // For bots the user id IS the application id.
+    // Required for the client to render this as a rich card. For bots the
+    // user id IS the application id.
     application_id: applicationId,
-    details: `Live in #${channelName}`,
     state: "come watch together",
     timestamps: { start: head.startedAt }, // elapsed timer since they went live
-    assets: {
-      large_image: LARGE_IMAGE_KEY,
-      large_text: "hios-ronda",
-      small_image: SMALL_IMAGE_KEY,
-      small_text: "LIVE",
-    },
   };
 }
 

@@ -21,8 +21,14 @@
 > RETRY (same day, Wisnu's call): the 2-activity rule suggests rich itself
 > was never broken — it was just always sent as the 2nd activity. Retrying
 > rich as the SOLE activity when watching (either/or: idle -> bubble,
-> watching -> rich card alone, no bubble). If the card renders this time,
-> the rule is confirmed.
+> watching -> rich card alone, no bubble). CONFIRMED — the card rendered.
+>
+> FINAL FORM (same day): art assets never loaded on the card (keys `movie`/
+> `eye` uploaded, `application_id` present — images just didn't resolve), so
+> images were dropped entirely per Wisnu ("udah gausah pake image"). Card is
+> now text-only: name `👀 <displayName> live in #<channel>`, state
+> "come watch together", elapsed timer. No details (channel already in the
+> name), no assets.
 
 Checked against discord.js v14 source installed in this repo (2026-10-09).
 
