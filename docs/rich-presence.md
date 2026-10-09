@@ -3,7 +3,7 @@
 > VERDICT 2026-10-10: REVERTED. Two live QA rounds — first without, then
 > with `application_id` on the activity — the rich card never rendered on
 > the bot's profile, while the plain bubble from the SAME payload rendered
-> fine both times. Assets (`watch`/`seen`) were uploaded to the right app
+> fine both times. Assets (`movie`/`eye`) were uploaded to the right app
 > well before the tests, keys correct, payload shape verified against the
 > gateway docs. Root cause unknown. Decision (Wisnu): back to plain text —
 > `Watching <displayName> live in #<channel>` via discord.js `setPresence`.
@@ -90,7 +90,7 @@ owner for presence.
 ## Checklist to enable
 
 - [ ] Upload art assets in the Developer Portal, note the keys
-      (`watch` = large image, `seen` = small image) — manual step, cannot be done from here
+      (`movie` = large image, `eye` = small image) — manual step, cannot be done from here
 - [x] Decide activity type + copy (name/details/state) — Watching,
       `"<displayName> live"`, `Live in #<channel>`, `come watch together`
 - [x] Implement raw opcode-3 sender — `src/features/status/richPresence.js`,

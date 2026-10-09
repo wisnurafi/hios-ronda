@@ -19,8 +19,8 @@ const { forEachState } = require("../streamwatch/state");
 // Art asset keys — must be uploaded in the Developer Portal →
 // your application → Rich Presence → Art Assets. Until they exist,
 // Discord simply renders the card without images (graceful).
-const LARGE_IMAGE_KEY = "watch";
-const SMALL_IMAGE_KEY = "seen";
+const LARGE_IMAGE_KEY = "movie";
+const SMALL_IMAGE_KEY = "eye";
 
 /** Find who the bot is currently watching (head of a live queue), if anyone. */
 function resolveWatchTarget(client) {
