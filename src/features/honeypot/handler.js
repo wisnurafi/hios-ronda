@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { log } = require("../../log");
 const { getConfig, updateConfig } = require("./store");
 const { refreshCounter } = require("./setup");
+const { getLogsWebhook } = require("./webhook");
 
 // userId -> timestamp of last punishment (anti double-punish on spam waves)
 const recentPunishments = new Map();
@@ -22,6 +23,20 @@ function wasRecentlyPunished(userId) {
 function isExempt(member, cfg) {
   if (cfg.exemptUsers.includes(member.id)) return true;
   return member.roles.cache.some((r) => cfg.exemptRoles.includes(r.id));
+}
+
+/** Send a log line as "HIOS | Honeypot" (webhook), falling back to the bot. */
+async function deliverLog(guild, cfg, hook, options) {
+  if (hook) {
+    try {
+      await hook.send(options);
+      return;
+    } catch (err) {
+      log(`webhook send failed: ${err.message}`);
+    }
+  }
+  const ch = await getLogsChannel(guild, cfg);
+  if (ch) await ch.send(options).catch(() => {});
 }
 
 async function getLogsChannel(guild, cfg) {
@@ -127,23 +142,42 @@ async function handleHoneypotMessage(message) {
     const userId = message.author.id;
     const content = quotedContent(message);
 
+    // Fallback quote (used only if native forward fails).
     const quote = new EmbedBuilder()
       .setAuthor({ name: `${message.author.tag} (${userId})` })
       .setDescription(`> ${content.replace(/\n/g, "\n> ")}`)
       .setFooter({ text: `#${message.channel.name} • ${new Date().toLocaleDateString("en-US")}` })
       .setTimestamp();
 
-    const logsChannel = await getLogsChannel(guild, cfg);
+    // Native forward FIRST (snapshot needs the original message),
+    // as "HIOS | Honeypot" via webhook. Then delete.
+    const hook = await getLogsWebhook(guild, cfg);
+    let forwarded = false;
+    if (hook) {
+      try {
+        await hook.send({
+          forward: { message: message.id, channel: message.channelId, guild: guild.id },
+        });
+        forwarded = true;
+      } catch (err) {
+        log(`native forward failed, using quote fallback: ${err.message}`);
+      }
+    }
+    if (!forwarded) {
+      await deliverLog(guild, cfg, hook, { content: `↩️ Forwarded message:`, embeds: [quote] });
+    }
+
+    await message.delete().catch(() => {});
 
     // Exempt: delete + log, no punishment, no counter.
     if (exempt) {
       log(`exempt user ${member.displayName} typed in honeypot — deleted, no punishment`);
-      if (logsChannel) {
-        await logsChannel.send({ content: `↩️ Forwarded message:`, embeds: [quote] });
-        await logsChannel.send(
-          `ℹ️ Exempt user <@${userId}> sent a message in the honeypot. Message deleted, no punishment applied (exempt).`
-        );
-      }
+      await deliverLog(
+        guild,
+        cfg,
+        hook,
+        `ℹ️ Exempt user <@${userId}> sent a message in the honeypot. Message deleted, no punishment applied (exempt).`
+      );
       return;
     }
 
@@ -157,11 +191,6 @@ async function handleHoneypotMessage(message) {
     const newCfg = updateConfig(guild.id, { catches: cfg.catches + 1 });
     await refreshCounter(guild, newCfg);
 
-    if (!logsChannel) {
-      log("no logs channel configured, catch not logged to Discord");
-      return;
-    }
-
     let line;
     if (result.ok && !result.repeated) {
       line = `⚠️ User <@${userId}> triggered the honeypot and was **${result.verbs.past}**. 🍯`;
@@ -171,8 +200,7 @@ async function handleHoneypotMessage(message) {
       line = result.warning;
     }
 
-    await logsChannel.send({ content: `↩️ Forwarded message:`, embeds: [quote] });
-    await logsChannel.send(line);
+    await deliverLog(guild, cfg, hook, line);
     log(`honeypot catch: ${userId} (${result.ok ? result.verbs?.past ?? "re-punished" : "not punished"})`);
   } catch (err) {
     log("honeypot handler error:", err.message);

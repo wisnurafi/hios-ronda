@@ -19,6 +19,7 @@ const {
 const { log } = require("../../log");
 const { getConfig, updateConfig } = require("./store");
 const { setupHoneypot } = require("./setup");
+const { getLogsWebhook, forgetLogsWebhook } = require("./webhook");
 
 const SESSION_MS = 600_000; // 10 minutes, like hios-bot dashboards
 const id = (...parts) => `hp:${parts.join(":")}`;
@@ -250,13 +251,15 @@ async function handleComponent(i, guild, rootInteraction) {
           updateConfig(guild.id, { logsChannelId: rootInteraction.channelId });
         }
         const c3 = getConfig(guild.id);
-        const logsCh = c3.logsChannelId
-          ? await guild.channels.fetch(c3.logsChannelId).catch(() => null)
-          : null;
-        if (logsCh?.isTextBased()) {
-          await logsCh.send(
-            `Honeypot is set up in <#${channel.id}>! This current channel will log honeypot events.`
-          );
+        const hook = await getLogsWebhook(guild, c3);
+        const setupLine = `Honeypot is set up in <#${channel.id}>! This current channel will log honeypot events.`;
+        if (hook) {
+          await hook.send(setupLine).catch(() => {});
+        } else {
+          const logsCh = c3.logsChannelId
+            ? await guild.channels.fetch(c3.logsChannelId).catch(() => null)
+            : null;
+          if (logsCh?.isTextBased()) await logsCh.send(setupLine).catch(() => {});
         }
       } catch (err) {
         await rootInteraction.followUp({
@@ -403,6 +406,7 @@ async function handleComponent(i, guild, rootInteraction) {
 
     if (pickKind === "logs_channel") {
       updateConfig(guild.id, { logsChannelId: i.values[0] });
+      forgetLogsWebhook(guild.id); // new channel -> new webhook
     } else if (pickKind === "action") {
       updateConfig(guild.id, { action: i.values[0] });
     } else if (pickKind === "exempt_role_add") {

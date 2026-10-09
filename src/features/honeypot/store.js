@@ -15,6 +15,8 @@ function defaults() {
     timeoutMinutes: 60,
     exemptRoles: [],
     exemptUsers: [],
+    logsWebhookId: null,
+    logsWebhookToken: null,
     warningTitle: "DO NOT SEND MESSAGES IN THIS CHANNEL",
     warningDescription:
       "This channel is used to catch spam bots. Any messages sent here will result in an immediate ban.",

@@ -29,10 +29,11 @@ Visible spam-trap channel (modelled after the classic honeypot bot). Anyone who 
   - 🛡️/👤 Exempt roles & users (add/remove)
   - 💬 Edit Warning Message (title + description)
   - ⏯️ Enable/Disable
-- On catch: the message is deleted → punishment applied → counter updated → alert logged with the forwarded offending message
+- On catch: the offending message is natively **forwarded** (↩ Forwarded UI) to the logs channel, then deleted → punishment applied → counter updated → alert logged
+- Log identity: the bot auto-creates a **"HIOS | Honeypot" webhook** (with pot avatar) in the logs channel, so log messages carry the classic honeypot identity instead of this bot's. If the native forward ever fails, it falls back to a quote embed.
 - Server owner / higher-role targets can't be punished — the bot logs a warning instead
 
-Required bot permissions: **Administrator** (or at least Ban Members + Kick Members + Moderate Members + Manage Channels + Send Messages).
+Required bot permissions: **Administrator** (or at least Ban Members + Kick Members + Moderate Members + Manage Channels + **Manage Webhooks** + Send Messages).
 Privileged intent: **Message Content** must be enabled in the Developer Portal (Bot → Privileged Gateway Intents) so the bot can quote offending messages. The bot also needs the `GuildMessages` intent (non-privileged).
 
 ## Setup
