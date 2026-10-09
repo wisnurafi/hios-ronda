@@ -7,10 +7,12 @@ const { bubbleActivity } = require("../status");
  * Single owner for the bot's presence. Called after every queue
  * reconciliation (and on ready).
  *
- * Plain-text design (2026-10-10): the bubble custom status is ALWAYS
- * shown, plus a Watching activity while someone is live. Rich presence
- * was tried and reverted — the rich card never rendered on the bot's
- * profile in live QA (see docs/rich-presence.md for the full story).
+ * Either/or design (2026-10-10): live QA proved that only ONE activity
+ * renders on this bot's profile — a second activity in the array is
+ * silently dropped (bubble + rich card failed, bubble + plain watching
+ * failed the same way). So: idle -> bubble custom status only; watching
+ * -> Watching '<displayName> live in #<channel>' only. This matches the
+ * original behavior that was known to work.
  */
 function refreshWatchStatus(client, config) {
   if (!client.user) return;
@@ -29,13 +31,13 @@ function refreshWatchStatus(client, config) {
     }
   });
 
-  const activities = [bubbleActivity(config.status)];
+  // NOTE: do NOT send bubble + watching together — the client only
+  // renders the first activity, the second is dropped (proven in QA).
+  const activities = target
+    ? [{ name: `${target.displayName} live in #${channelName}`, type: ActivityType.Watching }]
+    : [bubbleActivity(config.status)];
+
   if (target) {
-    // Renders as e.g. "Watching philip live in #philip's Room".
-    activities.push({
-      name: `${target.displayName} live in #${channelName}`,
-      type: ActivityType.Watching,
-    });
     log(`status: watching ${target.displayName} in #${channelName}`);
   } else {
     log(`status: idle, bubble "${config.status.text}"`);

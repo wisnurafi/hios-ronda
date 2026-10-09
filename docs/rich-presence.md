@@ -6,9 +6,17 @@
 > fine both times. Assets (`watch`/`seen`) were uploaded to the right app
 > well before the tests, keys correct, payload shape verified against the
 > gateway docs. Root cause unknown. Decision (Wisnu): back to plain text —
-> `Watching <displayName> live in #<channel>` via discord.js `setPresence`,
-> bubble always shown alongside. Rich code deleted (`src/features/status/
+> `Watching <displayName> live in #<channel>` via discord.js `setPresence`.
+> Rich code deleted (`src/features/status/
 > richPresence.js`); this doc kept so we don't retry this blindly.
+>
+> FOLLOW-UP FINDING (same day): the revert's first version sent
+> [bubble, watching] as TWO activities — the watching one didn't render
+> either. Pattern across all QA: 1 activity renders, a 2nd in the array is
+> silently dropped on this bot's profile. So the final design is strict
+> either/or: idle -> bubble only; watching -> Watching text only (no
+> bubble). This matches the original pre-rich behavior that was known
+> to work.
 
 Checked against discord.js v14 source installed in this repo (2026-10-09).
 
