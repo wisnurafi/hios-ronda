@@ -147,28 +147,15 @@ async function handleHoneypotMessage(message) {
       honey: emojiMention(cfg.emojis, "honey"),
     };
 
-    // Native forward FIRST (snapshot needs the original message),
-    // as "HIOS | Honeypot" via webhook. Then delete.
-    // Plain-text quote fallback only if the forward fails — no embeds.
+    // NOTE: native "↩ Forwarded" via webhook is not possible — discord.js
+    // resolves forwards through `target.messages`, which webhooks don't have
+    // (throws "Cannot read properties of undefined (reading 'resolveId')").
+    // So the log always uses a clean plain-text quote, matching the approved style.
     const hook = await getLogsWebhook(guild, cfg);
-    let forwarded = false;
-    if (hook) {
-      try {
-        await hook.send({
-          forward: { message: message.id, channel: message.channelId, guild: guild.id },
-        });
-        forwarded = true;
-      } catch (err) {
-        log(`native forward failed, using quote fallback: ${err.message}`);
-      }
-    }
-    if (!forwarded) {
-      const plainQuote =
-        content.length > 1500 ? content.slice(0, 1500) + "…" : content;
-      await deliverLog(guild, cfg, hook, {
-        content: `Forwarded message:\n> ${plainQuote.replace(/\n/g, "\n> ")}`,
-      });
-    }
+    const plainQuote = content.length > 1500 ? content.slice(0, 1500) + "…" : content;
+    await deliverLog(guild, cfg, hook, {
+      content: `Forwarded message:\n> ${plainQuote.replace(/\n/g, "\n> ")}`,
+    });
 
     await message.delete().catch(() => {});
 
