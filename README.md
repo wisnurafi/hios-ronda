@@ -53,6 +53,7 @@ hios-ronda/
         reconcile.js        # queue -> presence sync
         notify.js           # live/end notifications
         handler.js          # voiceStateUpdate logic
+        watchstatus.js      # dynamic status: "Watching <name> live" while serving
 ```
 
 New features go under `src/features/<name>/` with an `index.js` exposing

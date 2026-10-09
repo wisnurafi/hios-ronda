@@ -2,6 +2,7 @@ const { log } = require("../../log");
 const { getState, removeFromQueue, isQueued } = require("./state");
 const { reconcile } = require("./reconcile");
 const { notifyLive, notifyEnded } = require("./notify");
+const { refreshWatchStatus } = require("./watchstatus");
 
 /**
  * Core streamwatch logic. Rules (locked design):
@@ -10,7 +11,7 @@ const { notifyLive, notifyEnded } = require("./notify");
  * - Stop streaming -> grace period, then leave + notify end + serve next.
  * - Leave voice entirely -> drop immediately + notify end.
  */
-async function handleVoiceStateUpdate(oldState, newState, config) {
+async function handleVoiceStateUpdate(oldState, newState, client, config) {
   const guild = newState.guild ?? oldState.guild;
   if (!guild) return;
 
@@ -28,6 +29,7 @@ async function handleVoiceStateUpdate(oldState, newState, config) {
   if (wasStreaming && isStreaming && oldChannelId !== newChannelId) {
     log(`${member.displayName} moved channel mid-live -> leaving, not following`);
     if (removeFromQueue(guild.id, userId)) await reconcile(guild);
+    refreshWatchStatus(client, config);
     return;
   }
 
@@ -47,6 +49,7 @@ async function handleVoiceStateUpdate(oldState, newState, config) {
       entry.startedAt = Date.now();
     }
     await reconcile(guild);
+    refreshWatchStatus(client, config);
     return;
   }
 
@@ -60,6 +63,7 @@ async function handleVoiceStateUpdate(oldState, newState, config) {
       removeFromQueue(guild.id, userId);
       await notifyEnded(guild, member, config.notifyChannelId);
       await reconcile(guild);
+    refreshWatchStatus(client, config);
       return;
     }
     // stopped streaming but still in voice: grace period (anti-flap)
@@ -77,6 +81,7 @@ async function handleVoiceStateUpdate(oldState, newState, config) {
           log(`${member.displayName} grace expired -> leaving`);
           await notifyEnded(guild, member, config.notifyChannelId);
           await reconcile(guild);
+    refreshWatchStatus(client, config);
         }
       } catch (err) {
         log("grace timer error:", err.message);

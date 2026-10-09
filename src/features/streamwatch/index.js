@@ -3,6 +3,7 @@ const { log } = require("../../log");
 const { forEachState } = require("./state");
 const { reconcile } = require("./reconcile");
 const { handleVoiceStateUpdate } = require("./handler");
+const { refreshWatchStatus } = require("./watchstatus");
 
 /**
  * Wire the streamwatch feature into the client.
@@ -18,11 +19,12 @@ function registerStreamwatch(client, config) {
       if (guild && s.queue.length > 0) jobs.push(reconcile(guild));
     });
     await Promise.all(jobs);
+    refreshWatchStatus(client, config);
   });
 
   client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     try {
-      await handleVoiceStateUpdate(oldState, newState, config);
+      await handleVoiceStateUpdate(oldState, newState, client, config);
     } catch (err) {
       log("voiceStateUpdate handler error:", err.message);
     }
