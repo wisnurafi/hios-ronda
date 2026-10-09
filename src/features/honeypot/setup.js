@@ -127,8 +127,9 @@ async function refreshCounter(guild, cfg) {
     const channel = await guild.channels.fetch(cfg.honeypotChannelId);
     if (!channel?.isTextBased()) return;
     const message = await channel.messages.fetch(cfg.honeypotMessageId);
-    const { embed, row } = buildWarning(cfg);
-    await message.edit({ embeds: [embed], components: [row] });
+    const { attachment, embed, row } = buildWarning(cfg);
+    // re-upload the thumbnail too so art updates (e.g. new pot image) apply
+    await message.edit({ embeds: [embed], components: [row], files: [attachment] });
   } catch (err) {
     log(`counter refresh failed: ${err.message}`);
   }

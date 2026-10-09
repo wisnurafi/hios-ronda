@@ -1,10 +1,19 @@
 const fs = require("fs");
+const crypto = require("crypto");
 const path = require("path");
 const { log } = require("../../log");
 const { getConfig, updateConfig } = require("./store");
 
 const HONEYPOT_PNG = path.join(__dirname, "assets", "honeypot.png");
 const WEBHOOK_NAME = "HIOS | Honeypot";
+
+function assetHash() {
+  try {
+    return crypto.createHash("md5").update(fs.readFileSync(HONEYPOT_PNG)).digest("hex").slice(0, 12);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Get (or create) the "HIOS | Honeypot" webhook in the logs channel.
@@ -41,7 +50,11 @@ async function getLogsWebhook(guild, cfg) {
       avatar,
       reason: "hios-ronda honeypot log identity",
     });
-    updateConfig(guild.id, { logsWebhookId: hook.id, logsWebhookToken: hook.token });
+    updateConfig(guild.id, {
+      logsWebhookId: hook.id,
+      logsWebhookToken: hook.token,
+      webhookAvatarHash: assetHash(),
+    });
     log(`created logs webhook in #${channel.name}`);
     return hook;
   } catch (err) {
@@ -52,7 +65,25 @@ async function getLogsWebhook(guild, cfg) {
 
 /** Drop the stored webhook (e.g. logs channel changed). */
 function forgetLogsWebhook(guildId) {
-  updateConfig(guildId, { logsWebhookId: null, logsWebhookToken: null });
+  updateConfig(guildId, { logsWebhookId: null, logsWebhookToken: null, webhookAvatarHash: null });
 }
 
-module.exports = { getLogsWebhook, forgetLogsWebhook, WEBHOOK_NAME };
+/**
+ * Update the existing logs webhook's avatar if the bundled pot art changed
+ * (e.g. the user swapped in nicer artwork). Cheap: one md5 compare.
+ */
+async function syncLogsWebhookAvatar(guild, cfg) {
+  const hash = assetHash();
+  if (!hash || cfg.webhookAvatarHash === hash) return;
+  const hook = await getLogsWebhook(guild, cfg);
+  if (!hook) return;
+  try {
+    await hook.edit({ avatar: fs.readFileSync(HONEYPOT_PNG) });
+    updateConfig(guild.id, { webhookAvatarHash: hash });
+    log("updated logs webhook avatar");
+  } catch (err) {
+    log(`webhook avatar update failed: ${err.message}`);
+  }
+}
+
+module.exports = { getLogsWebhook, forgetLogsWebhook, syncLogsWebhookAvatar, WEBHOOK_NAME };

@@ -4,8 +4,9 @@ const { getConfig } = require("./store");
 const { deployCommands } = require("./commands");
 const { openDashboard } = require("./dashboard");
 const { handleHoneypotMessage } = require("./handler");
-const { recoverHoneypot } = require("./setup");
+const { recoverHoneypot, refreshCounter } = require("./setup");
 const { ensureHoneypotEmojis } = require("./emojis");
+const { syncLogsWebhookAvatar } = require("./webhook");
 
 /**
  * Wire the honeypot feature into the client.
@@ -21,6 +22,14 @@ function registerHoneypot(client) {
       // Make sure the clean icons exist as custom emojis.
       if (cfg.honeypotChannelId) {
         await ensureHoneypotEmojis(guild).catch((err) => log("emoji ensure error:", err.message));
+        // Refresh the "HIOS | Honeypot" webhook avatar if the art changed,
+        // and re-render the warning so new artwork shows immediately.
+        await syncLogsWebhookAvatar(guild, getConfig(guildId)).catch((err) =>
+          log("webhook avatar sync error:", err.message)
+        );
+        await refreshCounter(guild, getConfig(guildId)).catch((err) =>
+          log("warning refresh error:", err.message)
+        );
       }
       if (cfg.honeypotChannelId && !guild.channels.cache.get(cfg.honeypotChannelId)) {
         log(`honeypot channel missing in ${guild.name} — re-run setup from /honeypot`);
