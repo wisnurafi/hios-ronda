@@ -29,7 +29,7 @@ const {
   VoiceConnectionStatus,
   entersState,
 } = require("@discordjs/voice");
-const config = require("./config");
+const config = require("./src/config");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
