@@ -10,6 +10,7 @@ const { Events } = require("discord.js");
 const config = require("./src/config");
 const { log } = require("./src/log");
 const { createClient } = require("./src/client");
+const { deployCommands } = require("./src/commands");
 const { applyPresence } = require("./src/features/status");
 const { registerStreamwatch } = require("./src/features/streamwatch");
 const { registerHoneypot } = require("./src/features/honeypot");
@@ -22,6 +23,9 @@ async function main() {
     // bubble alone, watching -> rich card alone. Also re-runs on every
     // ready (incl. reconnects) via registerStreamwatch below.
     applyPresence(c, config);
+    // All slash commands (/honeypot, /watch) deployed together in one
+    // payload — guild PUT replaces the whole command list.
+    deployCommands(c).catch((err) => log("deployCommands error:", err.message));
     log(`online as ${c.user.tag}`);
   });
 

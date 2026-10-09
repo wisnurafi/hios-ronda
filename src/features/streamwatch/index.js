@@ -4,6 +4,7 @@ const { forEachState } = require("./state");
 const { reconcile } = require("./reconcile");
 const { handleVoiceStateUpdate } = require("./handler");
 const { refreshWatchStatus } = require("./watchstatus");
+const { handleWatchCommand } = require("./commands");
 
 /**
  * Wire the streamwatch feature into the client.
@@ -27,6 +28,16 @@ function registerStreamwatch(client, config) {
       await handleVoiceStateUpdate(oldState, newState, client, config);
     } catch (err) {
       log("voiceStateUpdate handler error:", err.message);
+    }
+  });
+
+  client.on(Events.InteractionCreate, async (interaction) => {
+    try {
+      if (interaction.isChatInputCommand() && interaction.commandName === "watch") {
+        await handleWatchCommand(interaction);
+      }
+    } catch (err) {
+      log("watch interaction error:", err.message);
     }
   });
 }

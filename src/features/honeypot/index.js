@@ -1,7 +1,6 @@
 const { Events } = require("discord.js");
 const { log } = require("../../log");
 const { getConfig } = require("./store");
-const { deployCommands } = require("./commands");
 const { openDashboard } = require("./dashboard");
 const { handleHoneypotMessage } = require("./handler");
 const { recoverHoneypot, refreshCounter } = require("./setup");
@@ -13,7 +12,7 @@ const { syncLogsWebhookAvatar } = require("./webhook");
  */
 function registerHoneypot(client) {
   client.once(Events.ClientReady, async (c) => {
-    await deployCommands(c);
+    // (slash commands are deployed centrally from src/commands.js)
     for (const [guildId, guild] of c.guilds.cache) {
       // Self-heal config first (ephemeral disk may have wiped data/*.json),
       // then sanity-check the channel still exists.

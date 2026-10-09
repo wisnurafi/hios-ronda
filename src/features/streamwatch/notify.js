@@ -1,5 +1,6 @@
 const { ChannelType } = require("discord.js");
 const { log } = require("../../log");
+const { isNotifyEnabled } = require("./store");
 
 async function getNotifyChannel(guild, notifyChannelId) {
   if (!notifyChannelId) return null;
@@ -13,6 +14,7 @@ async function getNotifyChannel(guild, notifyChannelId) {
 }
 
 async function notifyLive(guild, member, voiceChannel, notifyChannelId) {
+  if (!isNotifyEnabled(guild.id)) return; // silenced via /watch disable
   const ch = await getNotifyChannel(guild, notifyChannelId);
   if (!ch) return;
   try {
@@ -26,6 +28,7 @@ async function notifyLive(guild, member, voiceChannel, notifyChannelId) {
 }
 
 async function notifyEnded(guild, member, notifyChannelId) {
+  if (!isNotifyEnabled(guild.id)) return; // silenced via /watch disable
   const ch = await getNotifyChannel(guild, notifyChannelId);
   if (!ch) return;
   try {
