@@ -61,6 +61,10 @@ owner for presence.
 ## Checklist to enable
 
 - [ ] Upload art assets in the Developer Portal, note the keys
-- [ ] Decide activity type + copy (name/details/state)
-- [ ] Implement raw opcode-3 sender (see `presence.js` for the pattern)
-- [ ] Make sure `src/features/status/` doesn't overwrite it
+      (`watch` = large image, `seen` = small image) — manual step, cannot be done from here
+- [x] Decide activity type + copy (name/details/state) — Watching,
+      `"<displayName> live"`, `Live in #<channel>`, `come watch together`
+- [x] Implement raw opcode-3 sender — `src/features/status/richPresence.js`,
+      the single owner of presence (bubble + rich card in one payload)
+- [x] Make sure nothing else overwrites it — `setPresence`/`setActivity`
+      no longer called anywhere; `refreshWatchStatus` delegates to the sender

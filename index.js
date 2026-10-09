@@ -10,7 +10,7 @@ const { Events } = require("discord.js");
 const config = require("./src/config");
 const { log } = require("./src/log");
 const { createClient } = require("./src/client");
-const { applyCustomStatus } = require("./src/features/status");
+const { applyPresence } = require("./src/features/status");
 const { registerStreamwatch } = require("./src/features/streamwatch");
 const { registerHoneypot } = require("./src/features/honeypot");
 
@@ -18,7 +18,7 @@ async function main() {
   const client = createClient();
 
   client.once(Events.ClientReady, (c) => {
-    applyCustomStatus(c, config.status);
+    applyPresence(c, config);
     log(`online as ${c.user.tag}`);
   });
 

@@ -1,34 +1,14 @@
-const { ActivityType } = require("discord.js");
-const { log } = require("../../log");
-const { forEachState } = require("./state");
-const { applyCustomStatus } = require("../status");
+const { applyPresence } = require("../status");
 
 /**
- * Dynamic status: while the bot is watching someone, show
- * "Watching <name> live"; otherwise fall back to the configured
- * custom status. Called after every queue reconciliation.
+ * Single owner for the bot's presence. Called after every queue
+ * reconciliation (and on ready): bubble custom status always, plus a
+ * rich "watching X live" card while someone is live. Implemented as one
+ * raw opcode-3 payload — discord.js setPresence/setActivity would drop
+ * the rich fields and fight with this writer.
  */
 function refreshWatchStatus(client, config) {
-  if (!client.user) return;
-
-  let target = null;
-  forEachState((s, guildId) => {
-    if (target || s.queue.length === 0 || !s.presenceChannelId) return;
-    const head = s.queue[0];
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild || s.presenceChannelId !== head.channelId) return;
-    const member = guild.members.cache.get(head.userId);
-    if (member) target = member;
-  });
-
-  if (target) {
-    client.user.setActivity(`${target.displayName} live`, {
-      type: ActivityType.Watching,
-    });
-    log(`status: watching ${target.displayName}`);
-  } else {
-    applyCustomStatus(client, config.status);
-  }
+  return applyPresence(client, config);
 }
 
 module.exports = { refreshWatchStatus };
