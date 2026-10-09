@@ -12,6 +12,7 @@ const { log } = require("./src/log");
 const { createClient } = require("./src/client");
 const { applyCustomStatus } = require("./src/features/status");
 const { registerStreamwatch } = require("./src/features/streamwatch");
+const { registerHoneypot } = require("./src/features/honeypot");
 
 async function main() {
   const client = createClient();
@@ -23,6 +24,7 @@ async function main() {
 
   // --- features ---
   registerStreamwatch(client, config);
+  registerHoneypot(client);
   // registerYourNextFeature(client, config);
 
   process.on("unhandledRejection", (err) => log("unhandled rejection:", err?.message || err));
