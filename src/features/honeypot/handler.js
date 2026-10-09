@@ -106,10 +106,9 @@ async function handleHoneypotMessage(message) {
     if (message.channelId !== cfg.honeypotChannelId) return;
 
     const member = await guild.members.fetch(message.author.id).catch(() => null);
-    if (member && isExempt(member, cfg)) {
-      log(`exempt user ${member.displayName} typed in honeypot, ignored`);
-      return;
-    }
+    // Exempt users skip punishment, but their message is still deleted
+    // and logged (like the reference honeypot bot).
+    const exempt = member ? isExempt(member, cfg) : false;
 
     // Webhook spam: try to nuke the webhook too.
     if (message.webhookId) {
@@ -127,6 +126,27 @@ async function handleHoneypotMessage(message) {
 
     const userId = message.author.id;
     const content = quotedContent(message);
+
+    const quote = new EmbedBuilder()
+      .setAuthor({ name: `${message.author.tag} (${userId})` })
+      .setDescription(`> ${content.replace(/\n/g, "\n> ")}`)
+      .setFooter({ text: `#${message.channel.name} • ${new Date().toLocaleDateString("en-US")}` })
+      .setTimestamp();
+
+    const logsChannel = await getLogsChannel(guild, cfg);
+
+    // Exempt: delete + log, no punishment, no counter.
+    if (exempt) {
+      log(`exempt user ${member.displayName} typed in honeypot — deleted, no punishment`);
+      if (logsChannel) {
+        await logsChannel.send({ content: `↩️ Forwarded message:`, embeds: [quote] });
+        await logsChannel.send(
+          `ℹ️ Exempt user <@${userId}> sent a message in the honeypot. Message deleted, no punishment applied (exempt).`
+        );
+      }
+      return;
+    }
+
     let result;
     if (wasRecentlyPunished(userId)) {
       result = { ok: true, verbs: ACTION_VERBS[cfg.action] || ACTION_VERBS.ban, repeated: true };
@@ -137,17 +157,10 @@ async function handleHoneypotMessage(message) {
     const newCfg = updateConfig(guild.id, { catches: cfg.catches + 1 });
     await refreshCounter(guild, newCfg);
 
-    const logsChannel = await getLogsChannel(guild, newCfg);
     if (!logsChannel) {
       log("no logs channel configured, catch not logged to Discord");
       return;
     }
-
-    const quote = new EmbedBuilder()
-      .setAuthor({ name: `${message.author.tag} (${userId})` })
-      .setDescription(`> ${content.replace(/\n/g, "\n> ")}`)
-      .setFooter({ text: `#${message.channel.name} • ${new Date().toLocaleDateString("en-US")}` })
-      .setTimestamp();
 
     let line;
     if (result.ok && !result.repeated) {
