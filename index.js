@@ -10,7 +10,6 @@ const { Events } = require("discord.js");
 const config = require("./src/config");
 const { log } = require("./src/log");
 const { createClient } = require("./src/client");
-const { applyPresence } = require("./src/features/status");
 const { registerStreamwatch } = require("./src/features/streamwatch");
 const { registerHoneypot } = require("./src/features/honeypot");
 
@@ -18,7 +17,9 @@ async function main() {
   const client = createClient();
 
   client.once(Events.ClientReady, (c) => {
-    applyPresence(c, config);
+    // Presence is owned by refreshWatchStatus (streamwatch): bubble always,
+    // plus a Watching activity while someone is live. It runs on every
+    // ready (incl. reconnects) via registerStreamwatch below.
     log(`online as ${c.user.tag}`);
   });
 

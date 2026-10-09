@@ -1,9 +1,19 @@
-const { applyPresence } = require("./richPresence");
+const { ActivityType } = require("discord.js");
 
 /**
- * Status feature: bubble custom status (same style as hios-bot), sent
- * together with the rich "watching" card through one raw opcode-3 writer.
- * See richPresence.js — it is the single owner of the bot's presence.
+ * Builds the bubble custom status activity (same style as hios-bot).
+ * Used by the streamwatch presence writer below.
  */
+function bubbleActivity(statusConfig) {
+  if (statusConfig.type === ActivityType.Custom) {
+    return { name: "Custom Status", state: statusConfig.text, type: ActivityType.Custom };
+  }
+  const activity = { name: statusConfig.text, type: statusConfig.type };
+  // Streaming activities need a valid stream URL to render properly.
+  if (statusConfig.type === ActivityType.Streaming && statusConfig.url) {
+    activity.url = statusConfig.url;
+  }
+  return activity;
+}
 
-module.exports = { applyPresence };
+module.exports = { bubbleActivity };

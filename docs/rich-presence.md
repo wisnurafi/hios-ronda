@@ -1,5 +1,15 @@
 # Rich Presence (RPC) for bots — research notes
 
+> VERDICT 2026-10-10: REVERTED. Two live QA rounds — first without, then
+> with `application_id` on the activity — the rich card never rendered on
+> the bot's profile, while the plain bubble from the SAME payload rendered
+> fine both times. Assets (`watch`/`seen`) were uploaded to the right app
+> well before the tests, keys correct, payload shape verified against the
+> gateway docs. Root cause unknown. Decision (Wisnu): back to plain text —
+> `Watching <displayName> live in #<channel>` via discord.js `setPresence`,
+> bubble always shown alongside. Rich code deleted (`src/features/status/
+> richPresence.js`); this doc kept so we don't retry this blindly.
+
 Checked against discord.js v14 source installed in this repo (2026-10-09).
 
 ## What discord.js supports out of the box
