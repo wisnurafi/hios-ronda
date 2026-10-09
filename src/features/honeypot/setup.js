@@ -10,13 +10,14 @@ const {
 } = require("discord.js");
 const { log } = require("../../log");
 const { getConfig, updateConfig } = require("./store");
+const { ensureHoneypotEmojis } = require("./emojis");
 
 const HONEYPOT_PNG = path.join(__dirname, "assets", "honeypot.png");
 const DEFAULT_CHANNEL_NAME = "❗do-not-type-here❗";
 
 function counterLabel(cfg) {
   const noun = cfg.action === "ban" ? "Bans" : "Catches";
-  return `🍯 ${noun}: ${cfg.catches}`;
+  return `${noun}: ${cfg.catches}`;
 }
 
 /** Build the warning embed + counter button (mirrors the reference). */
@@ -27,13 +28,18 @@ function buildWarning(cfg) {
     .setDescription(cfg.warningDescription)
     .setThumbnail("attachment://honeypot.png")
     .setTimestamp();
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("honeypot_counter")
-      .setLabel(counterLabel(cfg))
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true)
-  );
+  const counterBtn = new ButtonBuilder()
+    .setCustomId("honeypot_counter")
+    .setLabel(counterLabel(cfg))
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(true);
+  const honey = cfg.emojis?.honey;
+  if (honey?.id) {
+    counterBtn.setEmoji({ id: honey.id, name: honey.name });
+  } else {
+    counterBtn.setLabel(`🍯 ${counterLabel(cfg)}`);
+  }
+  const row = new ActionRowBuilder().addComponents(counterBtn);
   return { attachment, embed, row };
 }
 
@@ -43,6 +49,10 @@ function buildWarning(cfg) {
  */
 async function setupHoneypot(guild, cfg) {
   const me = guild.members.me;
+
+  // clean flat-white icons as custom emojis (fallback: unicode)
+  await ensureHoneypotEmojis(guild);
+  cfg = getConfig(guild.id);
 
   // 1) channel
   let channel = cfg.honeypotChannelId

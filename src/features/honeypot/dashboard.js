@@ -20,6 +20,7 @@ const { log } = require("../../log");
 const { getConfig, updateConfig } = require("./store");
 const { setupHoneypot } = require("./setup");
 const { getLogsWebhook, forgetLogsWebhook } = require("./webhook");
+const { emojiMention } = require("./emojis");
 
 const SESSION_MS = 600_000; // 10 minutes, like hios-bot dashboards
 const id = (...parts) => `hp:${parts.join(":")}`;
@@ -41,7 +42,7 @@ function buildEmbed(guild, cfg) {
     (cfg.warningTitle.length + cfg.warningDescription.length > 77 ? "…" : "");
 
   return new EmbedBuilder()
-    .setTitle("🍯 Honeypot Dashboard")
+    .setTitle(`${emojiMention(cfg.emojis, "honey")} Honeypot Dashboard`)
     .setDescription(
       `Manage honeypot settings for **${guild.name}**.\nSelect an option below to modify a setting.`
     )
@@ -53,7 +54,7 @@ function buildEmbed(guild, cfg) {
       { name: "Action on Catch", value: actionLabel(cfg), inline: true },
       { name: "Exempt Roles", value: listOrNone(cfg.exemptRoles, (r) => `<@&${r}>`), inline: true },
       { name: "Exempt Users", value: listOrNone(cfg.exemptUsers, (u) => `<@${u}>`), inline: true },
-      { name: "Total Catches", value: `🍯 \`${cfg.catches}\``, inline: true },
+      { name: "Total Catches", value: `${emojiMention(cfg.emojis, "honey")} \`${cfg.catches}\``, inline: true },
       { name: "Warning Message", value: warnPreview, inline: false }
     )
     .setFooter({ text: "Dashboard closes after 10 minutes of inactivity" })

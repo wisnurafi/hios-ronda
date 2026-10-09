@@ -5,6 +5,7 @@ const { deployCommands } = require("./commands");
 const { openDashboard } = require("./dashboard");
 const { handleHoneypotMessage } = require("./handler");
 const { recoverHoneypot } = require("./setup");
+const { ensureHoneypotEmojis } = require("./emojis");
 
 /**
  * Wire the honeypot feature into the client.
@@ -17,6 +18,10 @@ function registerHoneypot(client) {
       // then sanity-check the channel still exists.
       await recoverHoneypot(guild).catch((err) => log("recover error:", err.message));
       const cfg = getConfig(guildId);
+      // Make sure the clean icons exist as custom emojis.
+      if (cfg.honeypotChannelId) {
+        await ensureHoneypotEmojis(guild).catch((err) => log("emoji ensure error:", err.message));
+      }
       if (cfg.honeypotChannelId && !guild.channels.cache.get(cfg.honeypotChannelId)) {
         log(`honeypot channel missing in ${guild.name} — re-run setup from /honeypot`);
       }

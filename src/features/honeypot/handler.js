@@ -1,8 +1,8 @@
-const { EmbedBuilder } = require("discord.js");
 const { log } = require("../../log");
 const { getConfig, updateConfig } = require("./store");
 const { refreshCounter } = require("./setup");
 const { getLogsWebhook } = require("./webhook");
+const { emojiMention } = require("./emojis");
 
 // userId -> timestamp of last punishment (anti double-punish on spam waves)
 const recentPunishments = new Map();
@@ -57,7 +57,7 @@ function quotedContent(message) {
   return "*no text content*";
 }
 
-async function applyPunishment(guild, member, userId, cfg) {
+async function applyPunishment(guild, member, userId, cfg, warnIcon) {
   const me = guild.members.me;
   const verbs = ACTION_VERBS[cfg.action] || ACTION_VERBS.ban;
   const reason = `hios-ronda honeypot: sent a message in #${guild.channels.cache.get(cfg.honeypotChannelId)?.name ?? "honeypot"}`;
@@ -67,7 +67,7 @@ async function applyPunishment(guild, member, userId, cfg) {
     return {
       ok: false,
       warning:
-        `⚠️ User <@${userId}> triggered the honeypot, but they are the server owner so I cannot ${verbs.present} them. ` +
+        `${warnIcon} User <@${userId}> triggered the honeypot, but they are the server owner so I cannot ${verbs.present} them. ` +
         `In anycase ensure my role is higher than people's highest role and that I have ban members permission so I can ${verbs.present} for actual cases.`,
     };
   }
@@ -77,7 +77,7 @@ async function applyPunishment(guild, member, userId, cfg) {
     return {
       ok: false,
       warning:
-        `⚠️ User <@${userId}> triggered the honeypot, but my highest role is not above theirs so I cannot ${verbs.present} them. ` +
+        `${warnIcon} User <@${userId}> triggered the honeypot, but my highest role is not above theirs so I cannot ${verbs.present} them. ` +
         `In anycase ensure my role is higher than people's highest role and that I have ban members permission so I can ${verbs.present} for actual cases.`,
     };
   }
@@ -99,7 +99,7 @@ async function applyPunishment(guild, member, userId, cfg) {
     return {
       ok: false,
       warning:
-        `⚠️ User <@${userId}> triggered the honeypot, but I failed to ${verbs.present} them (${err.message}). ` +
+        `${warnIcon} User <@${userId}> triggered the honeypot, but I failed to ${verbs.present} them (${err.message}). ` +
         `In anycase ensure my role is higher than people's highest role and that I have ban members permission so I can ${verbs.present} for actual cases.`,
     };
   }
@@ -141,16 +141,15 @@ async function handleHoneypotMessage(message) {
 
     const userId = message.author.id;
     const content = quotedContent(message);
-
-    // Fallback quote (used only if native forward fails).
-    const quote = new EmbedBuilder()
-      .setAuthor({ name: `${message.author.tag} (${userId})` })
-      .setDescription(`> ${content.replace(/\n/g, "\n> ")}`)
-      .setFooter({ text: `#${message.channel.name} • ${new Date().toLocaleDateString("en-US")}` })
-      .setTimestamp();
+    const E = {
+      warn: emojiMention(cfg.emojis, "warn"),
+      info: emojiMention(cfg.emojis, "info"),
+      honey: emojiMention(cfg.emojis, "honey"),
+    };
 
     // Native forward FIRST (snapshot needs the original message),
     // as "HIOS | Honeypot" via webhook. Then delete.
+    // Plain-text quote fallback only if the forward fails — no embeds.
     const hook = await getLogsWebhook(guild, cfg);
     let forwarded = false;
     if (hook) {
@@ -164,7 +163,11 @@ async function handleHoneypotMessage(message) {
       }
     }
     if (!forwarded) {
-      await deliverLog(guild, cfg, hook, { content: `↩️ Forwarded message:`, embeds: [quote] });
+      const plainQuote =
+        content.length > 1500 ? content.slice(0, 1500) + "…" : content;
+      await deliverLog(guild, cfg, hook, {
+        content: `Forwarded message:\n> ${plainQuote.replace(/\n/g, "\n> ")}`,
+      });
     }
 
     await message.delete().catch(() => {});
@@ -176,7 +179,7 @@ async function handleHoneypotMessage(message) {
         guild,
         cfg,
         hook,
-        `ℹ️ Exempt user <@${userId}> sent a message in the honeypot. Message deleted, no punishment applied (exempt).`
+        `${E.info} Exempt user <@${userId}> sent a message in the honeypot. Message deleted, no punishment applied (exempt).`
       );
       return;
     }
@@ -185,7 +188,7 @@ async function handleHoneypotMessage(message) {
     if (wasRecentlyPunished(userId)) {
       result = { ok: true, verbs: ACTION_VERBS[cfg.action] || ACTION_VERBS.ban, repeated: true };
     } else {
-      result = await applyPunishment(guild, member, userId, cfg);
+      result = await applyPunishment(guild, member, userId, cfg, E.warn);
     }
 
     const newCfg = updateConfig(guild.id, { catches: cfg.catches + 1 });
@@ -193,9 +196,9 @@ async function handleHoneypotMessage(message) {
 
     let line;
     if (result.ok && !result.repeated) {
-      line = `⚠️ User <@${userId}> triggered the honeypot and was **${result.verbs.past}**. 🍯`;
+      line = `${E.warn} User <@${userId}> triggered the honeypot and was **${result.verbs.past}**. ${E.honey}`;
     } else if (result.ok) {
-      line = `⚠️ User <@${userId}> triggered the honeypot again (already punished). 🍯`;
+      line = `${E.warn} User <@${userId}> triggered the honeypot again (already punished). ${E.honey}`;
     } else {
       line = result.warning;
     }

@@ -15,6 +15,7 @@ function defaults() {
     timeoutMinutes: 60,
     exemptRoles: [],
     exemptUsers: [],
+    emojis: {},
     logsWebhookId: null,
     logsWebhookToken: null,
     warningTitle: "DO NOT SEND MESSAGES IN THIS CHANNEL",
