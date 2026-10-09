@@ -1,3 +1,4 @@
+const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
 const { log } = require("../../log");
 const { getConfig, updateConfig } = require("./store");
 const { refreshCounter } = require("./setup");
@@ -153,8 +154,18 @@ async function handleHoneypotMessage(message) {
     // So the log always uses a clean plain-text quote, matching the approved style.
     const hook = await getLogsWebhook(guild, cfg);
     const plainQuote = content.length > 1500 ? content.slice(0, 1500) + "…" : content;
+    const channelName = message.channel?.name || "honeypot";
+    const jumpRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setLabel(`#${channelName}`)
+        .setURL(`https://discord.com/channels/${guild.id}/${message.channelId}`)
+    );
     await deliverLog(guild, cfg, hook, {
-      content: `Forwarded message:\n> ${plainQuote.replace(/\n/g, "\n> ")}`,
+      content:
+        `${emojiMention(cfg.emojis, "forward")} Forwarded message from <#${message.channelId}>:\n` +
+        `> ${plainQuote.replace(/\n/g, "\n> ")}`,
+      components: [jumpRow],
     });
 
     await message.delete().catch(() => {});

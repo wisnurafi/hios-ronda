@@ -11,6 +11,7 @@ const ICONS = {
   warn: { file: "warn.png", name: "hios_hp_warn", fallback: "⚠️" },
   info: { file: "info.png", name: "hios_hp_info", fallback: "ℹ️" },
   honey: { file: "honey.png", name: "hios_hp_honey", fallback: "🍯" },
+  forward: { file: "forward.png", name: "hios_hp_forward", fallback: "↩️" },
 };
 
 /**
