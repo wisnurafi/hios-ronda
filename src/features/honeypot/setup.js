@@ -101,4 +101,57 @@ async function refreshCounter(guild, cfg) {
   }
 }
 
-module.exports = { setupHoneypot, refreshCounter, buildWarning, DEFAULT_CHANNEL_NAME };
+/**
+ * Self-healing: rebuild local config if data/honeypot.json was wiped
+ * (e.g. ephemeral disk on free hosting) by rediscovering the honeypot
+ * channel by name and the warning message by its embed title.
+ * Also recovers the catch counter from the button label.
+ */
+async function recoverHoneypot(guild) {
+  const { getConfig, updateConfig } = require("./store");
+  const cfg = getConfig(guild.id);
+
+  const knownChannel = cfg.honeypotChannelId
+    ? guild.channels.cache.get(cfg.honeypotChannelId)
+    : null;
+  if (knownChannel) return false; // config intact
+
+  const channel = guild.channels.cache.find(
+    (c) => c.type === ChannelType.GuildText && c.name === DEFAULT_CHANNEL_NAME
+  );
+  if (!channel) return false;
+
+  let messageId = null;
+  let catches = cfg.catches || 0;
+  try {
+    const messages = await channel.messages.fetch({ limit: 20 });
+    const me = guild.members.me?.id;
+    const warning = messages.find(
+      (m) =>
+        m.author.id === me &&
+        m.embeds.some((e) => e.title === cfg.warningTitle || e.title === defaultsTitle())
+    );
+    if (warning) {
+      messageId = warning.id;
+      const label = warning.components[0]?.components[0]?.label || "";
+      const m = label.match(/(?:Bans|Catches):\s*(\d+)/i);
+      if (m) catches = parseInt(m[1], 10);
+    }
+  } catch (err) {
+    log(`honeypot recovery scan failed: ${err.message}`);
+  }
+
+  updateConfig(guild.id, {
+    honeypotChannelId: channel.id,
+    honeypotMessageId: messageId,
+    catches,
+  });
+  log(`recovered honeypot state in ${guild.name}: #${channel.name} (catches: ${catches})`);
+  return true;
+}
+
+function defaultsTitle() {
+  return "DO NOT SEND MESSAGES IN THIS CHANNEL";
+}
+
+module.exports = { setupHoneypot, refreshCounter, recoverHoneypot, buildWarning, DEFAULT_CHANNEL_NAME };
