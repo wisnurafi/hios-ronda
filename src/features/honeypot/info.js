@@ -12,13 +12,13 @@ const { getConfig } = require("./store");
 
 const HONEYPOT_PNG = path.join(__dirname, "assets", "honeypot.png");
 
-const ACTION_GERUND = { ban: "banning", kick: "kicking", timeout: "timing out" };
+const ACTION_PHRASE = { ban: "banning them", kick: "kicking them", timeout: "timing them out" };
 
 /** Info embed + thumbnail attachment. Stats are read fresh at click time. */
 function buildInfoEmbed(guild, cfg) {
   const attachment = new AttachmentBuilder(HONEYPOT_PNG, { name: "honeypot.png" });
   const channelMention = cfg.honeypotChannelId ? `<#${cfg.honeypotChannelId}>` : "#honeypot";
-  const punish = ACTION_GERUND[cfg.action] || "banning";
+  const punish = ACTION_PHRASE[cfg.action] || "banning them";
   const embed = new EmbedBuilder()
     .setTitle("🍯 HIOS Agent — Honeypot")
     .setDescription(
@@ -26,7 +26,7 @@ function buildInfoEmbed(guild, cfg) {
         "A honeypot is a channel used to detect unwanted activity.\n\n" +
         "HIOS Agent watches a channel that is visible to members but not intended for normal use. " +
         "Spam bots and compromised accounts may send messages to it while scanning or posting across a server.\n\n" +
-        `When a message is sent to the honeypot channel, HIOS Agent can automatically remove the user by ${punish} them.`
+        `When a message is sent to the honeypot channel, HIOS Agent can automatically remove the user by ${punish}.`
     )
     .addFields({
       name: "Server Stats",
