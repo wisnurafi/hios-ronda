@@ -12,6 +12,7 @@ const { log } = require("./src/log");
 const { createClient } = require("./src/client");
 const { deployCommands, commandNames } = require("./src/commands");
 const { registerControl } = require("./src/features/control");
+const { registerPing } = require("./src/features/ping");
 const { applyPresence } = require("./src/features/status");
 const { registerStreamwatch } = require("./src/features/streamwatch");
 const { registerHoneypot } = require("./src/features/honeypot");
@@ -28,7 +29,7 @@ async function main() {
     // ready (incl. reconnects) via registerStreamwatch below.
     applyPresence(c, config);
     // All slash commands (/honeypot, /watch, /begadang, /rapot, /help,
-    // /github, /control) deployed together in one payload — guild PUT
+    // /github, /control, /ping) deployed together in one payload — guild PUT
     // replaces the whole command list.
     deployCommands(c).catch((err) => log("deployCommands error:", err.message));
     log(`online as ${c.user.tag}`);
@@ -38,6 +39,7 @@ async function main() {
   // Control lockdown registers its own listener; its guard is called by
   // each feature's slash-command branch (see enforceControlLockdown).
   registerControl(client, commandNames);
+  registerPing(client);
   registerStreamwatch(client, config);
   registerHoneypot(client);
   registerRonda(client, config);

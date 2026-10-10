@@ -6,10 +6,11 @@ const { begadangCommand, rapotCommand } = require("./features/ronda/commands");
 const { helpCommand } = require("./features/help/commands");
 const { githubCommand } = require("./features/github/commands");
 const { controlCommand } = require("./features/control/commands");
+const { pingCommand } = require("./features/ping/commands");
 
 // All slash commands in ONE list: guild command PUT *replaces* the whole
 // list, so deploying per-feature would make them delete each other.
-const allCommands = [honeypotCommand, watchCommand, begadangCommand, rapotCommand, helpCommand, githubCommand, controlCommand];
+const allCommands = [honeypotCommand, watchCommand, begadangCommand, rapotCommand, helpCommand, githubCommand, controlCommand, pingCommand];
 
 // Command names for the /control except-autocomplete.
 const commandNames = allCommands.map((c) => c.name);

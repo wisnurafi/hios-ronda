@@ -44,6 +44,11 @@ async function handleHelpCommand(interaction) {
         name: "🔒 /control",
         value: "Control lockdown — restrict where and by whom commands can be used (Manage Server).",
         inline: false,
+      },
+      {
+        name: "🏓 /ping",
+        value: "Check the bot's latency and API speed.",
+        inline: false,
       }
     )
     .setFooter({ text: "Dashboards are ephemeral and need Administrator (or bot owner)" })
