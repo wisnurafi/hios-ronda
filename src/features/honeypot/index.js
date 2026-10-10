@@ -25,14 +25,14 @@ function registerHoneypot(client) {
         // Refresh the "HIOS | Honeypot" webhook avatar if the art changed,
         // and re-render the warning so new artwork shows immediately.
         await syncLogsWebhookAvatar(guild, getConfig(guildId)).catch((err) =>
-          log("webhook avatar sync error:", err.message)
+          log.warn("webhook avatar sync error:", err.message)
         );
         await refreshCounter(guild, getConfig(guildId)).catch((err) =>
-          log("warning refresh error:", err.message)
+          log.warn("warning refresh error:", err.message)
         );
       }
       if (cfg.honeypotChannelId && !guild.channels.cache.get(cfg.honeypotChannelId)) {
-        log(`honeypot channel missing in ${guild.name} — re-run setup from /honeypot`);
+        log.warn(`honeypot channel missing in ${guild.name} — re-run setup from /honeypot`);
       }
     }
   });
@@ -45,7 +45,7 @@ function registerHoneypot(client) {
         await handleInfoButton(interaction);
       }
     } catch (err) {
-      log("honeypot interaction error:", err.message);
+      log.warn("honeypot interaction error:", err.message);
     }
   });
 

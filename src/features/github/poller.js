@@ -43,6 +43,7 @@ async function pollRepo(guild, hook, repo) {
       }
     })
     .reverse(); // oldest first
+  log.debug(`github: ${repo}: ${events.length} events fetched, ${fresh.length} new`);
 
   for (const event of fresh) {
     const embed = buildEventPost(repo, event, cfg.emojis);
@@ -50,7 +51,7 @@ async function pollRepo(guild, hook, repo) {
     try {
       await hook.send({ embeds: [embed] });
     } catch (err) {
-      log(`github: send failed (${repo} ${event.type}): ${err.message}`);
+      log.warn(`github: send failed (${repo} ${event.type}): ${err.message}`);
     }
   }
   if (fresh.length > 0) log(`github: posted ${fresh.length} event(s) for ${repo}`);
@@ -62,6 +63,7 @@ async function pollRepo(guild, hook, repo) {
 async function pollTick(client) {
   if (!isConfigured()) return;
   const repos = configuredRepos();
+  log.debug(`github: tick start (${repos.length} repos)`);
   for (const [, guild] of client.guilds.cache) {
     const cfg = getConfig(guild.id);
     if (!cfg.enabled || !cfg.channelId) continue;
@@ -69,18 +71,18 @@ async function pollTick(client) {
     try {
       hook = await getGithubWebhook(guild, cfg);
     } catch (err) {
-      log(`github: webhook unavailable in ${guild.name}: ${err.message}`);
+      log.warn(`github: webhook unavailable in ${guild.name}: ${err.message}`);
       continue;
     }
     if (!hook) {
-      log(`github: no target channel/webhook in ${guild.name}, skipping`);
+      log.warn(`github: no target channel/webhook in ${guild.name}, skipping`);
       continue;
     }
     for (const repo of repos) {
       try {
         await pollRepo(guild, hook, repo);
       } catch (err) {
-        log(`github: poll failed for ${repo}: ${err.message}`);
+        log.warn(`github: poll failed for ${repo}: ${err.message}`);
       }
     }
   }

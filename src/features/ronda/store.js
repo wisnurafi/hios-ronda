@@ -54,7 +54,7 @@ function load() {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     cache = fs.existsSync(DATA_FILE) ? JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) : {};
   } catch (err) {
-    log("ronda store load failed:", err.message);
+    log.warn("ronda store load failed:", err.message);
     cache = {};
   }
   return cache;
@@ -64,7 +64,7 @@ function save() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(cache, null, 2));
   } catch (err) {
-    log("ronda store save failed:", err.message);
+    log.warn("ronda store save failed:", err.message);
   }
 }
 

@@ -22,7 +22,7 @@ function registerGithub(client) {
       await ensureGithubEmojis(guild).catch((err) => log("github emoji ensure error:", err.message));
     }
     if (!isConfigured()) {
-      log("github: GITHUB_TOKEN or GITHUB_REPOS not set — feed disabled (bot still runs)");
+      log.warn("github: GITHUB_TOKEN or GITHUB_REPOS not set — feed disabled (bot still runs)");
       return;
     }
     try {
@@ -39,7 +39,7 @@ function registerGithub(client) {
         pollTick(client).catch((err) => log("github poll error:", err.message));
       }, 20_000).unref?.();
     } catch (err) {
-      log("github: failed to schedule poller:", err.message);
+      log.warn("github: failed to schedule poller:", err.message);
     }
   });
 
@@ -50,7 +50,7 @@ function registerGithub(client) {
         await handleGithubCommand(interaction);
       }
     } catch (err) {
-      log("github interaction error:", err.message);
+      log.warn("github interaction error:", err.message);
     }
   });
 }

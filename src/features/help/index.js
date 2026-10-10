@@ -15,7 +15,7 @@ function registerHelp(client) {
         await handleHelpCommand(interaction);
       }
     } catch (err) {
-      log("help interaction error:", err.message);
+      log.warn("help interaction error:", err.message);
     }
   });
 }

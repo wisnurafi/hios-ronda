@@ -30,7 +30,7 @@ async function getGithubWebhook(guild, cfg) {
     try {
       return await client.fetchWebhook(cfg.webhookId, cfg.webhookToken);
     } catch {
-      log("github: stored webhook gone, recreating");
+      log.warn("github: stored webhook gone, recreating");
     }
   }
 
@@ -56,7 +56,7 @@ async function getGithubWebhook(guild, cfg) {
     log(`github: created webhook in #${channel.name}`);
     return hook;
   } catch (err) {
-    log(`github: webhook create failed: ${err.message}`);
+    log.warn(`github: webhook create failed: ${err.message}`);
     return null;
   }
 }

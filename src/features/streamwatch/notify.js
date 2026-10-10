@@ -39,7 +39,7 @@ async function notifyLive(guild, member, voiceChannel, config) {
       allowedMentions: { parse: ["everyone", "users"] },
     });
   } catch (err) {
-    log(`notify failed in ${guild.id}:`, err.message);
+    log.warn(`notify failed in ${guild.id}:`, err.message);
   }
 }
 
@@ -50,7 +50,7 @@ async function notifyEnded(guild, member, config) {
   try {
     await ch.send({ content: `⚫ **${member.displayName}** finished streaming.` });
   } catch (err) {
-    log(`notify failed in ${guild.id}:`, err.message);
+    log.warn(`notify failed in ${guild.id}:`, err.message);
   }
 }
 

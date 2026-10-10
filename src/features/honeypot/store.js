@@ -37,7 +37,7 @@ function load() {
       cache = {};
     }
   } catch (err) {
-    log("honeypot store load failed:", err.message);
+    log.warn("honeypot store load failed:", err.message);
     cache = {};
   }
   return cache;
@@ -48,7 +48,7 @@ function save() {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(DATA_FILE, JSON.stringify(cache, null, 2));
   } catch (err) {
-    log("honeypot store save failed:", err.message);
+    log.warn("honeypot store save failed:", err.message);
   }
 }
 

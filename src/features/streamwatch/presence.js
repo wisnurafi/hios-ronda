@@ -29,7 +29,7 @@ async function setPresence(guild, channelId) {
     getState(guild.id).presenceChannelId = channelId;
     return true;
   } catch (err) {
-    log(`presence update failed: ${err.message}`);
+    log.warn(`presence update failed: ${err.message}`);
     return false;
   }
 }
@@ -45,7 +45,7 @@ function canJoin(guild, channelId) {
     return null;
   }
   if (!channel.permissionsFor(me).has(PermissionFlagsBits.Connect)) {
-    log(`skip #${channel.name}: missing Connect permission`);
+    log.warn(`skip #${channel.name}: missing Connect permission`);
     return null;
   }
   return channel;

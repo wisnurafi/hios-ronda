@@ -27,7 +27,7 @@ function registerStreamwatch(client, config) {
     try {
       await handleVoiceStateUpdate(oldState, newState, client, config);
     } catch (err) {
-      log("voiceStateUpdate handler error:", err.message);
+      log.warn("voiceStateUpdate handler error:", err.message);
     }
   });
 
@@ -37,7 +37,7 @@ function registerStreamwatch(client, config) {
         await handleWatchCommand(interaction);
       }
     } catch (err) {
-      log("watch interaction error:", err.message);
+      log.warn("watch interaction error:", err.message);
     }
   });
 }

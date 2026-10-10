@@ -51,6 +51,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  log("fatal:", err?.message || err);
+  log.error("fatal:", err?.message || err);
   process.exit(1);
 });

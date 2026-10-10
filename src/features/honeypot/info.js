@@ -49,7 +49,7 @@ async function handleInfoButton(interaction) {
       flags: MessageFlags.Ephemeral,
     });
   } catch (err) {
-    log("honeypot info button error:", err.message);
+    log.warn("honeypot info button error:", err.message);
   }
 }
 

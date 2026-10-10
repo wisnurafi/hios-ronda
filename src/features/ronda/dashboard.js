@@ -222,7 +222,7 @@ async function openDashboard(interaction, feature) {
     try {
       await handleComponent(i, guild, interaction, feature);
     } catch (err) {
-      log(`${feature} dashboard component error:`, err.message);
+      log.warn(`${feature} dashboard component error:`, err.message);
       try {
         if (!i.replied && !i.deferred) await i.deferUpdate();
       } catch {}

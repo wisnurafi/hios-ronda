@@ -37,7 +37,7 @@ function isEnabled() {
 async function initDb() {
   const url = (process.env.DATABASE_URL || "").trim();
   if (!url) {
-    log("ronda db: DATABASE_URL not set — voice stats disabled (bot still runs)");
+    log.warn("ronda db: DATABASE_URL not set — voice stats disabled (bot still runs)");
     return;
   }
   // Neon free tier suspends compute when idle — the first connection wakes
@@ -59,7 +59,7 @@ async function initDb() {
       log("ronda db: connected, schema ready");
       return;
     } catch (err) {
-      log(`ronda db: connect attempt ${attempt}/${attempts} failed:`, err.message);
+      log.warn(`ronda db: connect attempt ${attempt}/${attempts} failed:`, err.message);
       try {
         await pool?.end().catch(() => {});
       } catch {}
@@ -67,7 +67,7 @@ async function initDb() {
       if (attempt < attempts) await new Promise((r) => setTimeout(r, 5000));
     }
   }
-  log("ronda db: unavailable — voice stats disabled (bot still runs)");
+  log.warn("ronda db: unavailable — voice stats disabled (bot still runs)");
   enabled = false;
 }
 
@@ -134,7 +134,7 @@ async function recordSession({ guildId, userId, weekStart, minutes, nightMinutes
       ]
     );
   } catch (err) {
-    log("ronda db: recordSession failed:", err.message);
+    log.warn("ronda db: recordSession failed:", err.message);
   }
 }
 
@@ -152,7 +152,7 @@ async function topNightOwls(guildId, weekStart, limit = 5) {
     );
     return rows;
   } catch (err) {
-    log("ronda db: topNightOwls failed:", err.message);
+    log.warn("ronda db: topNightOwls failed:", err.message);
     return [];
   }
 }
@@ -170,7 +170,7 @@ async function weekRows(guildId, weekStart) {
     );
     return rows;
   } catch (err) {
-    log("ronda db: weekRows failed:", err.message);
+    log.warn("ronda db: weekRows failed:", err.message);
     return [];
   }
 }
@@ -186,7 +186,7 @@ async function pruneOldWeeks() {
     );
     if (res.rowCount > 0) log(`ronda db: pruned ${res.rowCount} old week rows`);
   } catch (err) {
-    log("ronda db: pruneOldWeeks failed:", err.message);
+    log.warn("ronda db: pruneOldWeeks failed:", err.message);
   }
 }
 

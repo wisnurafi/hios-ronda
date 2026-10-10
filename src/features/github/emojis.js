@@ -58,7 +58,7 @@ async function ensureGithubEmojis(guild) {
       out[key] = { id: created.id, name: created.name };
       log(`uploaded emoji :${icon.name}:`);
     } catch (err) {
-      log(`emoji upload failed (:${icon.name}:): ${err.message}`);
+      log.warn(`emoji upload failed (:${icon.name}:): ${err.message}`);
       out[key] = null;
     }
   }

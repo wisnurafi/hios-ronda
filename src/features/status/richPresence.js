@@ -99,7 +99,7 @@ async function applyPresence(client, config) {
       },
     });
   } catch (err) {
-    log(`presence update failed: ${err.message}`);
+    log.warn(`presence update failed: ${err.message}`);
   }
 }
 

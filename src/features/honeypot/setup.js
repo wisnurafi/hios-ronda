@@ -142,7 +142,7 @@ async function refreshCounter(guild, cfg) {
     // re-upload the thumbnail too so art updates (e.g. new pot image) apply
     await message.edit({ embeds: [embed], components: [row], files: [attachment] });
   } catch (err) {
-    log(`counter refresh failed: ${err.message}`);
+    log.warn(`counter refresh failed: ${err.message}`);
   }
 }
 
@@ -183,7 +183,7 @@ async function recoverHoneypot(guild) {
       if (m) catches = parseInt(m[1], 10);
     }
   } catch (err) {
-    log(`honeypot recovery scan failed: ${err.message}`);
+    log.warn(`honeypot recovery scan failed: ${err.message}`);
   }
 
   updateConfig(guild.id, {

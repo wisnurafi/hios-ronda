@@ -165,7 +165,7 @@ async function openWatchDashboard(interaction) {
     try {
       await handleComponent(i, guild, interaction);
     } catch (err) {
-      log("watch dashboard component error:", err.message);
+      log.warn("watch dashboard component error:", err.message);
       try {
         if (!i.replied && !i.deferred) await i.deferUpdate();
       } catch {}

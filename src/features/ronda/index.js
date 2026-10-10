@@ -39,14 +39,14 @@ function registerRonda(client, config) {
         "*/5 * * * *",
         () => {
           runDueAnnouncements(client).catch((err) =>
-            log("ronda announce error:", err.message)
+            log.warn("ronda announce error:", err.message)
           );
         },
         { timezone: "Asia/Jakarta" }
       );
       log("ronda: announcement scheduler running (5-min tick, per-guild schedules)");
     } catch (err) {
-      log("ronda: failed to schedule announcements:", err.message);
+      log.warn("ronda: failed to schedule announcements:", err.message);
     }
   });
 
@@ -54,7 +54,7 @@ function registerRonda(client, config) {
     try {
       await handleVoiceStateUpdate(oldState, newState);
     } catch (err) {
-      log("ronda voiceStateUpdate error:", err.message);
+      log.warn("ronda voiceStateUpdate error:", err.message);
     }
   });
 
@@ -67,7 +67,7 @@ function registerRonda(client, config) {
         await handleRapotCommand(interaction);
       }
     } catch (err) {
-      log("ronda interaction error:", err.message);
+      log.warn("ronda interaction error:", err.message);
     }
   });
 

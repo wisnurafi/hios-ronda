@@ -210,7 +210,7 @@ async function openDashboard(interaction) {
     try {
       await handleComponent(i, guild, interaction);
     } catch (err) {
-      log("dashboard component error:", err.message);
+      log.warn("dashboard component error:", err.message);
       try {
         if (!i.replied && !i.deferred) await i.deferUpdate();
       } catch {}
@@ -390,7 +390,7 @@ async function handleComponent(i, guild, rootInteraction) {
           const { setupHoneypot } = require("./setup");
           await setupHoneypot(guild, getConfig(guild.id));
         } catch (err) {
-          log("warning refresh failed:", err.message);
+          log.warn("warning refresh failed:", err.message);
         }
         await submitted.deferUpdate();
         await rerender();
@@ -416,7 +416,7 @@ async function handleComponent(i, guild, rootInteraction) {
         const { setupHoneypot } = require("./setup");
         await setupHoneypot(guild, getConfig(guild.id));
       } catch (err) {
-        log("warning refresh failed:", err.message);
+        log.warn("warning refresh failed:", err.message);
       }
     } else if (pickKind === "exempt_role_add") {
       updateConfig(guild.id, { exemptRoles: [...new Set([...c.exemptRoles, ...i.values])] });

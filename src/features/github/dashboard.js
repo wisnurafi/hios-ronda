@@ -127,7 +127,7 @@ async function openGithubDashboard(interaction) {
     try {
       await handleComponent(i, guild, interaction);
     } catch (err) {
-      log(`github dashboard component error:`, err.message);
+      log.warn(`github dashboard component error:`, err.message);
       try {
         if (!i.replied && !i.deferred) await i.deferUpdate();
       } catch {}

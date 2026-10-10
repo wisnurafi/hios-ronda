@@ -23,7 +23,7 @@ async function deployCommands(client) {
       await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
       log(`deployed ${names} in ${guild.name}`);
     } catch (err) {
-      log(`command deploy failed in ${guildId}: ${err.message}`);
+      log.warn(`command deploy failed in ${guildId}: ${err.message}`);
     }
   }
 }

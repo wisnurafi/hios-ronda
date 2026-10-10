@@ -176,7 +176,7 @@ async function announceFeature(client, guild, feature, weekStart) {
   if (!cfg || cfg.enabled === false) return;
   const channel = await resolveChannel(guild, cfg.channelId);
   if (!channel) {
-    log(`ronda announce: no channel available in ${guild.name} (${feature})`);
+    log.warn(`ronda announce: no channel available in ${guild.name} (${feature})`);
     return;
   }
   const rows = feature === "begadang" ? await topNightOwls(guild.id, weekStart, 5) : await weekRows(guild.id, weekStart);
@@ -189,7 +189,7 @@ async function announceFeature(client, guild, feature, weekStart) {
     updateFeatureConfig(guild.id, feature, { lastAnnouncedAt: Date.now() });
     log(`ronda announce: ${feature} sent in ${guild.name} for week ${weekStart}`);
   } catch (err) {
-    log(`ronda announce: send failed (${feature}):`, err.message);
+    log.warn(`ronda announce: send failed (${feature}):`, err.message);
   }
 }
 
@@ -201,16 +201,18 @@ let lastPruneDay = null;
 async function runDueAnnouncements(client) {
   if (!isEnabled()) return; // DB down: stay quiet, the reconnect loop handles it
   const now = Date.now();
+  log.debug("ronda: due-check tick");
   const lastWeek = weekStartWeeksAgo(now, 1);
   for (const [, guild] of client.guilds.cache) {
     const cfg = getGuildConfig(guild.id);
     for (const feature of ["begadang", "rapot"]) {
       try {
         if (isDue(cfg[feature], now)) {
+          log.debug(`ronda: ${feature} due in ${guild.name}`);
           await announceFeature(client, guild, feature, lastWeek);
         }
       } catch (err) {
-        log(`ronda announce: guild ${guild.id} (${feature}) failed:`, err.message);
+        log.warn(`ronda announce: guild ${guild.id} (${feature}) failed:`, err.message);
       }
     }
   }
@@ -220,7 +222,7 @@ async function runDueAnnouncements(client) {
     try {
       await pruneOldWeeks();
     } catch (err) {
-      log("ronda prune error:", err.message);
+      log.warn("ronda prune error:", err.message);
     }
   }
 }

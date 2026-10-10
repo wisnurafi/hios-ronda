@@ -33,7 +33,7 @@ async function deliverLog(guild, cfg, hook, options) {
       await hook.send(options);
       return;
     } catch (err) {
-      log(`webhook send failed: ${err.message}`);
+      log.warn(`webhook send failed: ${err.message}`);
     }
   }
   const ch = await getLogsChannel(guild, cfg);
@@ -96,7 +96,7 @@ async function applyPunishment(guild, member, userId, cfg, warnIcon) {
     }
     return { ok: true, verbs };
   } catch (err) {
-    log(`punishment failed for ${userId}: ${err.message}`);
+    log.warn(`punishment failed for ${userId}: ${err.message}`);
     return {
       ok: false,
       warning:
@@ -134,7 +134,7 @@ async function handleHoneypotMessage(message) {
         if (hook) await hook.delete("hios-ronda honeypot: spam webhook");
         log(`deleted spam webhook ${message.webhookId}`);
       } catch (err) {
-        log(`webhook delete failed: ${err.message}`);
+        log.warn(`webhook delete failed: ${err.message}`);
       }
     }
 
@@ -204,7 +204,7 @@ async function handleHoneypotMessage(message) {
     await deliverLog(guild, cfg, hook, line);
     log(`honeypot catch: ${userId} (${result.ok ? result.verbs?.past ?? "re-punished" : "not punished"})`);
   } catch (err) {
-    log("honeypot handler error:", err.message);
+    log.warn("honeypot handler error:", err.message);
   }
 }
 

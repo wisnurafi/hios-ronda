@@ -84,7 +84,7 @@ async function handleVoiceStateUpdate(oldState, newState, client, config) {
     refreshWatchStatus(client, config);
         }
       } catch (err) {
-        log("grace timer error:", err.message);
+        log.warn("grace timer error:", err.message);
       }
     }, config.leaveGraceMs);
     s.leaveTimers.set(userId, timer);

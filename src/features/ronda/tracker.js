@@ -31,14 +31,16 @@ async function endSession(guildId, userId) {
   const endedAt = Date.now();
   const minutes = minutesBetween(s.joinedAt, endedAt);
   if (minutes <= 0) return; // ignore sub-minute blips
+  const nightMinutes = nightMinutesBetween(s.joinedAt, endedAt);
   await recordSession({
     guildId,
     userId,
     weekStart: weekStartOf(endedAt),
     minutes,
-    nightMinutes: nightMinutesBetween(s.joinedAt, endedAt),
+    nightMinutes,
     channelId: s.channelId,
   });
+  log.debug(`ronda: session recorded ${userId}: ${minutes}m (${nightMinutes}m night)`);
 }
 
 function startSession(guildId, userId, channelId) {
@@ -71,7 +73,7 @@ async function handleVoiceStateUpdate(oldState, newState) {
     }
     // mute/deafen/stream toggles: session continues untouched
   } catch (err) {
-    log("ronda tracker error:", err.message);
+    log.warn("ronda tracker error:", err.message);
   }
 }
 
@@ -100,7 +102,7 @@ async function seedFromGuilds(client) {
         }
       }
     } catch (err) {
-      log(`ronda tracker seed failed for ${guild.id}:`, err.message);
+      log.warn(`ronda tracker seed failed for ${guild.id}:`, err.message);
     }
   }
   if (sessions.size > 0) log(`ronda tracker: seeded ${sessions.size} active session(s)`);

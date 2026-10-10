@@ -31,7 +31,7 @@ async function getLogsWebhook(guild, cfg) {
       const hook = await client.fetchWebhook(cfg.logsWebhookId, cfg.logsWebhookToken);
       return hook;
     } catch {
-      log("stored logs webhook gone, recreating");
+      log.warn("stored logs webhook gone, recreating");
     }
   }
 
@@ -58,7 +58,7 @@ async function getLogsWebhook(guild, cfg) {
     log(`created logs webhook in #${channel.name}`);
     return hook;
   } catch (err) {
-    log(`webhook create failed: ${err.message}`);
+    log.warn(`webhook create failed: ${err.message}`);
     return null;
   }
 }
@@ -82,7 +82,7 @@ async function syncLogsWebhookAvatar(guild, cfg) {
     updateConfig(guild.id, { webhookAvatarHash: hash });
     log("updated logs webhook avatar");
   } catch (err) {
-    log(`webhook avatar update failed: ${err.message}`);
+    log.warn(`webhook avatar update failed: ${err.message}`);
   }
 }
 
