@@ -60,7 +60,7 @@ function buildBegadangEmbed(guild, weekStart, rows) {
         (lines.length > 0 ? lines.join("\n") : "_No night activity recorded this week._")
     )
     .setColor(0x1a1a2e)
-    .setFooter({ text: "Ronda night patrol • night = 00:00–05:00 WIB" })
+    .setFooter({ text: "Night patrol • night = 00:00–05:00 WIB" })
     .setTimestamp();
 }
 
@@ -115,7 +115,7 @@ function buildRapotEmbed(guild, weekStart, rows) {
     .setDescription(`Week of **${weekLabel(weekStart)}**`)
     .setColor(0x2b6cb0)
     .addFields(fields)
-    .setFooter({ text: "Ronda night patrol • all times WIB" })
+    .setFooter({ text: "Night patrol • all times WIB" })
     .setTimestamp();
 }
 
