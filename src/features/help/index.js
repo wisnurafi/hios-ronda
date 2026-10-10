@@ -5,6 +5,7 @@
 
 const { Events } = require("discord.js");
 const { log } = require("../../log");
+const { enforceControlLockdown } = require("../control");
 const { handleHelpCommand } = require("./commands");
 
 function registerHelp(client) {
@@ -12,6 +13,7 @@ function registerHelp(client) {
     try {
       if (!interaction.isChatInputCommand()) return;
       if (interaction.commandName === "help") {
+        if (await enforceControlLockdown(interaction)) return;
         await handleHelpCommand(interaction);
       }
     } catch (err) {

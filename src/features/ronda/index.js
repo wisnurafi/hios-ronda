@@ -12,6 +12,7 @@
 const { Events } = require("discord.js");
 const cron = require("node-cron");
 const { log } = require("../../log");
+const { enforceControlLockdown } = require("../control");
 const { initDb, startReconnectLoop } = require("./db");
 const { handleVoiceStateUpdate, seedFromGuilds } = require("./tracker");
 const { runDueAnnouncements } = require("./announce");
@@ -61,6 +62,7 @@ function registerRonda(client, config) {
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (!interaction.isChatInputCommand()) return;
+      if (await enforceControlLockdown(interaction)) return;
       if (interaction.commandName === "begadang") {
         await handleBegadangCommand(interaction);
       } else if (interaction.commandName === "rapot") {

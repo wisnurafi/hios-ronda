@@ -1,5 +1,6 @@
 const { Events } = require("discord.js");
 const { log } = require("../../log");
+const { enforceControlLockdown } = require("../control");
 const { getConfig } = require("./store");
 const { openDashboard } = require("./dashboard");
 const { handleHoneypotMessage } = require("./handler");
@@ -40,6 +41,7 @@ function registerHoneypot(client) {
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.isChatInputCommand() && interaction.commandName === "honeypot") {
+        if (await enforceControlLockdown(interaction)) return;
         await openDashboard(interaction);
       } else if (interaction.isButton() && interaction.customId === "honeypot_info") {
         await handleInfoButton(interaction);

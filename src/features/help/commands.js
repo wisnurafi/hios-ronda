@@ -39,6 +39,11 @@ async function handleHelpCommand(interaction) {
         name: "📡 /github",
         value: "GitHub logs — push/PR/release feed from your repos, posted by HIOS Agent.",
         inline: false,
+      },
+      {
+        name: "🔒 /control",
+        value: "Control lockdown — restrict where and by whom commands can be used (Manage Server).",
+        inline: false,
       }
     )
     .setFooter({ text: "Dashboards are ephemeral and need Administrator (or bot owner)" })

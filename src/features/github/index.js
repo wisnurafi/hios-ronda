@@ -11,6 +11,7 @@
 const { Events } = require("discord.js");
 const cron = require("node-cron");
 const { log } = require("../../log");
+const { enforceControlLockdown } = require("../control");
 const { pollTick, isConfigured } = require("./poller");
 const { handleGithubCommand } = require("./commands");
 const { ensureGithubEmojis } = require("./emojis");
@@ -46,6 +47,7 @@ function registerGithub(client) {
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (!interaction.isChatInputCommand()) return;
+      if (await enforceControlLockdown(interaction)) return;
       if (interaction.commandName === "github") {
         await handleGithubCommand(interaction);
       }

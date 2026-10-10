@@ -1,5 +1,6 @@
 const { Events } = require("discord.js");
 const { log } = require("../../log");
+const { enforceControlLockdown } = require("../control");
 const { forEachState } = require("./state");
 const { reconcile } = require("./reconcile");
 const { handleVoiceStateUpdate } = require("./handler");
@@ -34,6 +35,7 @@ function registerStreamwatch(client, config) {
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.isChatInputCommand() && interaction.commandName === "watch") {
+        if (await enforceControlLockdown(interaction)) return;
         await handleWatchCommand(interaction);
       }
     } catch (err) {
