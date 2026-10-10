@@ -288,7 +288,7 @@ async function handleComponent(i, guild, rootInteraction, feature) {
         new ChannelSelectMenuBuilder()
           .setCustomId(id(feature, "pick", "channel", guild.id))
           .setPlaceholder("Select the announce channel")
-          .addChannelTypes(ChannelType.GuildText)
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
       );
       const resetRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
