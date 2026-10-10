@@ -14,6 +14,7 @@ const { deployCommands } = require("./src/commands");
 const { applyPresence } = require("./src/features/status");
 const { registerStreamwatch } = require("./src/features/streamwatch");
 const { registerHoneypot } = require("./src/features/honeypot");
+const { registerRonda } = require("./src/features/ronda");
 
 async function main() {
   const client = createClient();
@@ -23,8 +24,8 @@ async function main() {
     // bubble alone, watching -> rich card alone. Also re-runs on every
     // ready (incl. reconnects) via registerStreamwatch below.
     applyPresence(c, config);
-    // All slash commands (/honeypot, /watch) deployed together in one
-    // payload — guild PUT replaces the whole command list.
+    // All slash commands (/honeypot, /watch, /begadang, /rapot) deployed
+    // together in one payload — guild PUT replaces the whole command list.
     deployCommands(c).catch((err) => log("deployCommands error:", err.message));
     log(`online as ${c.user.tag}`);
   });
@@ -32,6 +33,7 @@ async function main() {
   // --- features ---
   registerStreamwatch(client, config);
   registerHoneypot(client);
+  registerRonda(client, config);
   // registerYourNextFeature(client, config);
 
   process.on("unhandledRejection", (err) => log("unhandled rejection:", err?.message || err));
