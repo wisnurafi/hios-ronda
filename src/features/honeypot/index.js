@@ -3,6 +3,7 @@ const { log } = require("../../log");
 const { getConfig } = require("./store");
 const { openDashboard } = require("./dashboard");
 const { handleHoneypotMessage } = require("./handler");
+const { handleInfoButton } = require("./info");
 const { recoverHoneypot, refreshCounter } = require("./setup");
 const { ensureHoneypotEmojis } = require("./emojis");
 const { syncLogsWebhookAvatar } = require("./webhook");
@@ -40,6 +41,8 @@ function registerHoneypot(client) {
     try {
       if (interaction.isChatInputCommand() && interaction.commandName === "honeypot") {
         await openDashboard(interaction);
+      } else if (interaction.isButton() && interaction.customId === "honeypot_info") {
+        await handleInfoButton(interaction);
       }
     } catch (err) {
       log("honeypot interaction error:", err.message);

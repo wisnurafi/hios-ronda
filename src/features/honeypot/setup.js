@@ -62,7 +62,18 @@ function buildWarning(cfg) {
   } else {
     counterBtn.setLabel(`🍯 ${counterLabel(cfg)}`);
   }
-  const row = new ActionRowBuilder().addComponents(counterBtn);
+  // Public info button (clickable by anyone -> ephemeral explainer).
+  const infoBtn = new ButtonBuilder()
+    .setCustomId("honeypot_info")
+    .setLabel("Info")
+    .setStyle(ButtonStyle.Secondary);
+  const info = cfg.emojis?.info;
+  if (info?.id) {
+    infoBtn.setEmoji({ id: info.id, name: info.name });
+  } else {
+    infoBtn.setEmoji("ℹ️");
+  }
+  const row = new ActionRowBuilder().addComponents(counterBtn, infoBtn);
   return { attachment, embed, row };
 }
 
