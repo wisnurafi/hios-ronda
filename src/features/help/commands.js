@@ -34,6 +34,11 @@ async function handleHelpCommand(interaction) {
         name: "📋 /rapot",
         value: "Weekly patrol report — server voice totals, most active member, and more.",
         inline: false,
+      },
+      {
+        name: "📡 /github",
+        value: "GitHub logs — push/PR/release feed from your repos, posted by HIOS Agent.",
+        inline: false,
       }
     )
     .setFooter({ text: "Dashboards are ephemeral and need Administrator (or bot owner)" })

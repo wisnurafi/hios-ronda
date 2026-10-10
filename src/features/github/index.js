@@ -1,0 +1,53 @@
+/**
+ * GitHub logs feature: polls GitHub repo events every 3 minutes and posts
+ * new pushes / PRs / releases to the guild's target channel through the
+ * "HIOS | GitHub" webhook.
+ *
+ *  - /github opens the per-guild dashboard (target channel, on/off, preview).
+ *  - Repos + token come from env: GITHUB_REPOS, GITHUB_TOKEN.
+ *  - Missing token/repos: the feature stays quiet, the bot keeps running.
+ */
+
+const { Events } = require("discord.js");
+const cron = require("node-cron");
+const { log } = require("../../log");
+const { pollTick, isConfigured } = require("./poller");
+const { handleGithubCommand } = require("./commands");
+
+function registerGithub(client) {
+  client.once(Events.ClientReady, async () => {
+    if (!isConfigured()) {
+      log("github: GITHUB_TOKEN or GITHUB_REPOS not set — feed disabled (bot still runs)");
+      return;
+    }
+    try {
+      cron.schedule(
+        "*/3 * * * *",
+        () => {
+          pollTick(client).catch((err) => log("github poll error:", err.message));
+        },
+        { timezone: "Asia/Jakarta" }
+      );
+      log("github: poller running every 3 minutes");
+      // Quick first tick so baselines are recorded without waiting 3 min.
+      setTimeout(() => {
+        pollTick(client).catch((err) => log("github poll error:", err.message));
+      }, 20_000).unref?.();
+    } catch (err) {
+      log("github: failed to schedule poller:", err.message);
+    }
+  });
+
+  client.on(Events.InteractionCreate, async (interaction) => {
+    try {
+      if (!interaction.isChatInputCommand()) return;
+      if (interaction.commandName === "github") {
+        await handleGithubCommand(interaction);
+      }
+    } catch (err) {
+      log("github interaction error:", err.message);
+    }
+  });
+}
+
+module.exports = { registerGithub };
