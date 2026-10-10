@@ -49,6 +49,11 @@ async function handleHelpCommand(interaction) {
         name: "🏓 /ping",
         value: "Check the bot's latency and API speed.",
         inline: false,
+      },
+      {
+        name: "✅ /verify",
+        value: "One-click member verification — dashboard needs Administrator.",
+        inline: false,
       }
     )
     .setFooter({ text: "Dashboards are ephemeral and need Administrator (or bot owner)" })
