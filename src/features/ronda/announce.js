@@ -10,10 +10,29 @@
 const { EmbedBuilder, ChannelType } = require("discord.js");
 const { log } = require("../../log");
 const { isEnabled, topNightOwls, weekRows, pruneOldWeeks } = require("./db");
-const { getGuildConfig } = require("./store");
-const { weekStartWeeksAgo, weekLabel, formatDuration } = require("./time");
+const { getGuildConfig, updateFeatureConfig } = require("./store");
+const { weekStartWeeksAgo, weekLabel, formatDuration, wibParts } = require("./time");
 
 const MEDALS = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
+// The scheduler ticks every 5 minutes; a feature is due when its configured
+// day/hour matches and the minute falls inside one tick window.
+const CHECK_MINUTES = 5;
+// Guard against firing twice if the bot restarts inside the same window.
+const DEDUP_MS = 30 * 60_000;
+
+/**
+ * True when `cfg` (a per-guild feature config) should announce now.
+ * `now` is injectable for tests.
+ */
+function isDue(cfg, now = Date.now()) {
+  if (!cfg || cfg.enabled === false) return false;
+  const s = cfg.schedule || { day: 1, hour: 9, minute: 0 };
+  const { day, hour, minute } = wibParts(now);
+  if (day !== s.day || hour !== s.hour) return false;
+  if (minute < s.minute || minute >= s.minute + CHECK_MINUTES) return false;
+  if (cfg.lastAnnouncedAt && now - cfg.lastAnnouncedAt < DEDUP_MS) return false;
+  return true;
+}
 
 function renderTemplate(template, vars) {
   let out = template;
@@ -167,35 +186,51 @@ async function announceFeature(client, guild, feature, weekStart) {
     feature === "begadang" ? buildBegadangEmbed(guild, weekStart, rows) : buildRapotEmbed(guild, weekStart, rows);
   try {
     await channel.send({ content, embeds: [embed] });
+    updateFeatureConfig(guild.id, feature, { lastAnnouncedAt: Date.now() });
     log(`ronda announce: ${feature} sent in ${guild.name} for week ${weekStart}`);
   } catch (err) {
     log(`ronda announce: send failed (${feature}):`, err.message);
   }
 }
 
-/** Monday 09:00 WIB job: announce last week for every guild, then prune. */
-async function runWeeklyAnnouncements(client) {
-  if (!isEnabled()) {
-    log("ronda announce: db disabled, skipping weekly announcements");
-    return;
-  }
-  const lastWeek = weekStartWeeksAgo(Date.now(), 1);
+/**
+ * Scheduler tick (every 5 min): announce for every guild whose per-guild
+ * schedule is due, then prune old rows at most once a day.
+ */
+let lastPruneDay = null;
+async function runDueAnnouncements(client) {
+  if (!isEnabled()) return; // DB down: stay quiet, the reconnect loop handles it
+  const now = Date.now();
+  const lastWeek = weekStartWeeksAgo(now, 1);
   for (const [, guild] of client.guilds.cache) {
-    try {
-      await announceFeature(client, guild, "begadang", lastWeek);
-      await announceFeature(client, guild, "rapot", lastWeek);
-    } catch (err) {
-      log(`ronda announce: guild ${guild.id} failed:`, err.message);
+    const cfg = getGuildConfig(guild.id);
+    for (const feature of ["begadang", "rapot"]) {
+      try {
+        if (isDue(cfg[feature], now)) {
+          await announceFeature(client, guild, feature, lastWeek);
+        }
+      } catch (err) {
+        log(`ronda announce: guild ${guild.id} (${feature}) failed:`, err.message);
+      }
     }
   }
-  await pruneOldWeeks();
+  const today = new Date(now + 7 * 3600 * 1000).toISOString().slice(0, 10); // WIB date
+  if (today !== lastPruneDay) {
+    lastPruneDay = today;
+    try {
+      await pruneOldWeeks();
+    } catch (err) {
+      log("ronda prune error:", err.message);
+    }
+  }
 }
 
 module.exports = {
   renderTemplate,
+  isDue,
   buildBegadangEmbed,
   buildRapotEmbed,
   commonVars,
   announceFeature,
-  runWeeklyAnnouncements,
+  runDueAnnouncements,
 };

@@ -4,7 +4,8 @@
  *  - Tracks voice sessions (VoiceStateUpdate) into Postgres (Neon).
  *  - Auto-migrates schema on startup; degrades gracefully when the DB
  *    is unavailable (bot keeps running, stats are skipped).
- *  - Announces both reports every Monday 09:00 WIB via node-cron.
+ *  - Announces both reports on each guild's own schedule (WIB) via a
+ *    5-minute node-cron tick.
  *  - /begadang and /rapot open the per-feature dashboards.
  */
 
@@ -13,7 +14,7 @@ const cron = require("node-cron");
 const { log } = require("../../log");
 const { initDb, startReconnectLoop } = require("./db");
 const { handleVoiceStateUpdate, seedFromGuilds } = require("./tracker");
-const { runWeeklyAnnouncements } = require("./announce");
+const { runDueAnnouncements } = require("./announce");
 const { handleBegadangCommand, handleRapotCommand } = require("./commands");
 
 function registerRonda(client, config) {
@@ -31,20 +32,21 @@ function registerRonda(client, config) {
     // Seed sessions that were already active before (re)start.
     await seedFromGuilds(client).catch((err) => log("ronda seed error:", err.message));
 
-    // Weekly announcements: Monday 09:00 Asia/Jakarta.
+    // Announcement scheduler: every 5 minutes each guild's /begadang and
+    // /rapot fire on their own configured day/time (WIB wall-clock).
     try {
       cron.schedule(
-        "0 9 * * 1",
+        "*/5 * * * *",
         () => {
-          runWeeklyAnnouncements(client).catch((err) =>
-            log("ronda weekly announce error:", err.message)
+          runDueAnnouncements(client).catch((err) =>
+            log("ronda announce error:", err.message)
           );
         },
         { timezone: "Asia/Jakarta" }
       );
-      log("ronda: weekly announcements scheduled (Mon 09:00 WIB)");
+      log("ronda: announcement scheduler running (5-min tick, per-guild schedules)");
     } catch (err) {
-      log("ronda: failed to schedule weekly announcements:", err.message);
+      log("ronda: failed to schedule announcements:", err.message);
     }
   });
 

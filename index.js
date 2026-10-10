@@ -15,6 +15,7 @@ const { applyPresence } = require("./src/features/status");
 const { registerStreamwatch } = require("./src/features/streamwatch");
 const { registerHoneypot } = require("./src/features/honeypot");
 const { registerRonda } = require("./src/features/ronda");
+const { registerHelp } = require("./src/features/help");
 
 async function main() {
   const client = createClient();
@@ -34,6 +35,7 @@ async function main() {
   registerStreamwatch(client, config);
   registerHoneypot(client);
   registerRonda(client, config);
+  registerHelp(client);
   // registerYourNextFeature(client, config);
 
   process.on("unhandledRejection", (err) => log("unhandled rejection:", err?.message || err));

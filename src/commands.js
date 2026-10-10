@@ -3,10 +3,11 @@ const { log } = require("./log");
 const { honeypotCommand } = require("./features/honeypot/commands");
 const { watchCommand } = require("./features/streamwatch/commands");
 const { begadangCommand, rapotCommand } = require("./features/ronda/commands");
+const { helpCommand } = require("./features/help/commands");
 
 // All slash commands in ONE list: guild command PUT *replaces* the whole
 // list, so deploying per-feature would make them delete each other.
-const allCommands = [honeypotCommand, watchCommand, begadangCommand, rapotCommand];
+const allCommands = [honeypotCommand, watchCommand, begadangCommand, rapotCommand, helpCommand];
 
 /**
  * Register every slash command in every guild (instant, unlike global).

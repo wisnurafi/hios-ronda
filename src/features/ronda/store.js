@@ -29,7 +29,14 @@ const DEFAULT_RAPOT_MESSAGE =
   "📋 **Weekly Patrol Report** — week of {week}\nHere's what the night patrol observed:";
 
 function featureDefaults() {
-  return { enabled: true, channelId: null, message: null };
+  return {
+    enabled: true,
+    channelId: null,
+    message: null,
+    // Weekly announcement schedule (WIB wall-clock): day 0=Sunday..6=Saturday.
+    schedule: { day: 1, hour: 9, minute: 0 },
+    lastAnnouncedAt: null,
+  };
 }
 
 function defaults() {

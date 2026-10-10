@@ -40,7 +40,6 @@ const FEATURES = {
     title: "🌙 Night Owls Dashboard",
     description: "Weekly night-owl leaderboard settings",
     color: 0x1a1a2e,
-    schedule: "Every Monday 09:00 WIB",
     placeholders:
       "`{week}` week label · `{top1}` #1 mention · `{top1_time}` #1 night time",
     defaultMessage: DEFAULT_BEGADANG_MESSAGE,
@@ -49,13 +48,21 @@ const FEATURES = {
     title: "📋 Patrol Report Dashboard",
     description: "Weekly patrol report announcement settings",
     color: 0x2b6cb0,
-    schedule: "Every Monday 09:00 WIB",
     placeholders:
       "`{week}` week label · `{total_hours}` total voice · `{most_active}` most active member · " +
       "`{longest_session}` longest session · `{favorite_channel}` top channel · `{night_owl}` night owl #1",
     defaultMessage: DEFAULT_RAPOT_MESSAGE,
   },
 };
+
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const pad2 = (n) => String(n).padStart(2, "0");
+
+/** "Every Monday 09:00 WIB" for a { day, hour, minute } schedule. */
+function formatSchedule(s) {
+  const d = DAYS[s?.day] ?? DAYS[1];
+  return `Every ${d} ${pad2(s?.hour ?? 9)}:${pad2(s?.minute ?? 0)} WIB`;
+}
 
 const id = (feature, ...parts) => `${feature}:${parts.join(":")}`;
 
@@ -71,7 +78,7 @@ function buildEmbed(guild, feature, cfg) {
     .addFields(
       { name: "Status", value: cfg.enabled ? "**Enabled**" : "**Disabled**", inline: true },
       { name: "Announce Channel", value: channel, inline: true },
-      { name: "Schedule", value: meta.schedule, inline: true },
+      { name: "Schedule", value: formatSchedule(cfg.schedule), inline: true },
       { name: "Message", value: msgPreview, inline: false },
       { name: "Placeholders", value: meta.placeholders, inline: false }
     )
@@ -103,6 +110,11 @@ function mainComponents(feature, guildId, cfg) {
           .setValue("channel")
           .setEmoji("📢"),
         new StringSelectMenuOptionBuilder()
+          .setLabel("Set Schedule")
+          .setDescription("Day and time of the weekly announcement (WIB)")
+          .setValue("schedule")
+          .setEmoji("🕘"),
+        new StringSelectMenuOptionBuilder()
           .setLabel("Edit Message")
           .setDescription("Text shown above the announcement embed")
           .setValue("message")
@@ -126,6 +138,51 @@ function backRow(feature, guildId) {
       .setLabel("← Back")
       .setStyle(ButtonStyle.Secondary)
   );
+}
+
+/** Schedule sub-view: day / hour / minute pickers (all WIB) + back. */
+function scheduleComponents(feature, guildId, schedule) {
+  const s = { day: 1, hour: 9, minute: 0, ...schedule };
+  const dayRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(id(feature, "pick", "sched_day", guildId))
+      .setPlaceholder(`Day — currently ${DAYS[s.day]}`)
+      .addOptions(
+        DAYS.map((d, i) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(d)
+            .setValue(String(i))
+            .setDefault(i === s.day)
+        )
+      )
+  );
+  const hourRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(id(feature, "pick", "sched_hour", guildId))
+      .setPlaceholder(`Hour (WIB) — currently ${pad2(s.hour)}:00`)
+      .addOptions(
+        Array.from({ length: 24 }, (_, h) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(`${pad2(h)}:00`)
+            .setValue(String(h))
+            .setDefault(h === s.hour)
+        )
+      )
+  );
+  const minRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(id(feature, "pick", "sched_min", guildId))
+      .setPlaceholder(`Minute — currently :${pad2(s.minute)}`)
+      .addOptions(
+        [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(`:${pad2(m)}`)
+            .setValue(String(m))
+            .setDefault(m === s.minute)
+        )
+      )
+  );
+  return [dayRow, hourRow, minRow, backRow(feature, guildId)];
 }
 
 async function openDashboard(interaction, feature) {
@@ -314,6 +371,19 @@ async function handleComponent(i, guild, rootInteraction, feature) {
       }
       return;
     }
+    if (value === "schedule") {
+      await i.update({ components: scheduleComponents(feature, guild.id, cfg.schedule) });
+      return;
+    }
+  }
+
+  // ---- schedule picker results (day / hour / minute, all WIB) ----
+  if (i.componentType === ComponentType.StringSelect && kind === "pick" && parts[2].startsWith("sched_")) {
+    const field = parts[2].slice("sched_".length); // day | hour | min
+    const schedule = { ...cfg.schedule, [field]: parseInt(i.values[0], 10) };
+    updateFeatureConfig(guild.id, feature, { schedule });
+    await i.update({ components: scheduleComponents(feature, guild.id, schedule) });
+    return;
   }
 
   // ---- channel picker result ----

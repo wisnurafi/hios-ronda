@@ -82,6 +82,12 @@ function formatDuration(minutes) {
   return rest === 0 ? `${h}h` : `${h}h ${rest}m`;
 }
 
+/** { day, hour, minute } of `ts` in WIB wall-clock time (day: 0 = Sunday). */
+function wibParts(ts) {
+  const wib = new Date(ts + WIB_OFFSET_MS);
+  return { day: wib.getUTCDay(), hour: wib.getUTCHours(), minute: wib.getUTCMinutes() };
+}
+
 module.exports = {
   weekStartOf,
   weekStartWeeksAgo,
@@ -89,4 +95,5 @@ module.exports = {
   minutesBetween,
   weekLabel,
   formatDuration,
+  wibParts,
 };

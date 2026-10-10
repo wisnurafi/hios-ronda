@@ -6,13 +6,17 @@ processing, no polling — just `VoiceStateUpdate` timestamps.
 ## Features
 
 - **🌙 Night Owls leaderboard** (`/begadang` dashboard) — top 5 members by
-  voice minutes between 00:00–05:00 WIB, announced every **Monday 09:00 WIB**.
+  voice minutes between 00:00–05:00 WIB, announced on the guild's schedule
+  (default **Monday 09:00 WIB**).
 - **📋 Weekly Patrol Report** (`/rapot` dashboard) — total voice time, most
-  active member, longest session, favorite channel, night owl #1. Same schedule.
+  active member, longest session, favorite channel, night owl #1. Own schedule.
 - Both announcements are English embeds; the text above each embed is an
   editable per-guild template with `{placeholders}` (see dashboard).
 - Dashboards are ephemeral, admin-or-bot-owner only, auto-close after 10 min,
   and include a **Test Preview** rendered from the current week's real data.
+- Each dashboard has a **Set Schedule** option: day of week + hour + minute,
+  all in WIB. A 5-minute cron tick fires announcements whose schedule is due
+  (with a 30-min dedup guard against double-firing after restarts).
 
 ## Time model
 
