@@ -28,7 +28,7 @@ const { forgetGithubWebhook } = require("./webhook");
 const { buildSamples } = require("./embeds");
 
 const SESSION_MS = 600_000; // 10 minutes, like the other dashboards
-const POLL_LABEL = "Every 3 minutes";
+const POLL_LABEL = "Every 2 minutes";
 
 const id = (...parts) => `github:${parts.join(":")}`;
 

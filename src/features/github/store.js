@@ -18,7 +18,8 @@ function defaults() {
     webhookToken: null,
     webhookAvatarHash: null,
     emojis: {}, // custom push/pr/release emojis { key: {id,name} | null }
-    lastEventIds: {}, // "owner/repo" -> newest seen GitHub event id
+    // per-repo poll state: "owner/repo" -> { branch, sha, seen: [], checkedAt }
+    poll: {},
   };
 }
 
@@ -62,6 +63,16 @@ function updateConfig(guildId, patch) {
   return all[guildId];
 }
 
+function getPollState(guildId, repo) {
+  const cfg = getConfig(guildId);
+  return (cfg.poll && cfg.poll[repo]) || null;
+}
+
+function setPollState(guildId, repo, state) {
+  const cfg = getConfig(guildId);
+  updateConfig(guildId, { poll: { ...(cfg.poll || {}), [repo]: state } });
+}
+
 /** Repos from env: GITHUB_REPOS="owner/a,owner/b". */
 function configuredRepos() {
   return (process.env.GITHUB_REPOS || "")
@@ -74,4 +85,4 @@ function githubToken() {
   return (process.env.GITHUB_TOKEN || "").trim();
 }
 
-module.exports = { getConfig, updateConfig, configuredRepos, githubToken };
+module.exports = { getConfig, updateConfig, getPollState, setPollState, configuredRepos, githubToken };

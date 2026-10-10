@@ -27,13 +27,13 @@ function registerGithub(client) {
     }
     try {
       cron.schedule(
-        "*/3 * * * *",
+        "*/2 * * * *",
         () => {
           pollTick(client).catch((err) => log("github poll error:", err.message));
         },
         { timezone: "Asia/Jakarta" }
       );
-      log("github: poller running every 3 minutes");
+      log("github: poller running every 2 minutes");
       // Quick first tick so baselines are recorded without waiting 3 min.
       setTimeout(() => {
         pollTick(client).catch((err) => log("github poll error:", err.message));
