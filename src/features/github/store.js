@@ -17,6 +17,7 @@ function defaults() {
     webhookId: null,
     webhookToken: null,
     webhookAvatarHash: null,
+    emojis: {}, // custom push/pr/release emojis { key: {id,name} | null }
     lastEventIds: {}, // "owner/repo" -> newest seen GitHub event id
   };
 }

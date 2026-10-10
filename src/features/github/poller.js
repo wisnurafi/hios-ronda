@@ -45,10 +45,10 @@ async function pollRepo(guild, hook, repo) {
     .reverse(); // oldest first
 
   for (const event of fresh) {
-    const post = buildEventPost(repo, event);
-    if (!post) continue;
+    const embed = buildEventPost(repo, event, cfg.emojis);
+    if (!embed) continue;
     try {
-      await hook.send({ embeds: [post.embed], files: [post.attachment] });
+      await hook.send({ embeds: [embed] });
     } catch (err) {
       log(`github: send failed (${repo} ${event.type}): ${err.message}`);
     }

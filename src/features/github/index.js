@@ -13,9 +13,14 @@ const cron = require("node-cron");
 const { log } = require("../../log");
 const { pollTick, isConfigured } = require("./poller");
 const { handleGithubCommand } = require("./commands");
+const { ensureGithubEmojis } = require("./emojis");
 
 function registerGithub(client) {
   client.once(Events.ClientReady, async () => {
+    // Upload the push/pr/release icons as custom emojis (reused by name).
+    for (const [, guild] of client.guilds.cache) {
+      await ensureGithubEmojis(guild).catch((err) => log("github emoji ensure error:", err.message));
+    }
     if (!isConfigured()) {
       log("github: GITHUB_TOKEN or GITHUB_REPOS not set — feed disabled (bot still runs)");
       return;

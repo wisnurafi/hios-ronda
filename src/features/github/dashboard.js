@@ -144,12 +144,12 @@ async function openGithubDashboard(interaction) {
 }
 
 /** Ephemeral test preview with sample push/PR/release embeds (no network). */
-async function sendPreview(i) {
-  const samples = buildSamples();
+async function sendPreview(i, guild) {
+  const cfg = getConfig(guild.id);
+  const samples = buildSamples(cfg.emojis);
   await i.reply({
     content: "👀 **Preview** — this is how new events will look:",
-    embeds: samples.map((s) => s.embed),
-    files: samples.map((s) => s.attachment),
+    embeds: samples,
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -179,7 +179,7 @@ async function handleComponent(i, guild, rootInteraction) {
       return;
     }
     if (kind === "preview") {
-      await sendPreview(i);
+      await sendPreview(i, guild);
       return;
     }
     if (kind === "reset_channel") {

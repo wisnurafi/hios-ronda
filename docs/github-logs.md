@@ -36,4 +36,6 @@ sender reads as HIOS Agent instead of the raw GitHub App).
 - `src/features/github/webhook.js` — "HIOS | GitHub" webhook (avatar: `assets/avatar.png`)
 - `src/features/github/poller.js` — 3-minute tick, baseline + diff + post
 - `src/features/github/dashboard.js` — `/github` dashboard (ephemeral, admin-only, 10-min auto-close)
-- `src/features/github/assets/` — webhook avatar + white push/pr/release icons (from Wisnu)
+- `src/features/github/assets/` — webhook avatar + white push/pr/release icons (from Wisnu);
+  the icons are uploaded as custom guild emojis (`hios_gh_push`, `hios_gh_pr`,
+  `hios_gh_release`, unicode fallback) and used in embed titles

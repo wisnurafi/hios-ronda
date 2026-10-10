@@ -1,21 +1,15 @@
 /**
  * Custom Discord embeds for GitHub events, all user-facing text in English.
- * Each event type gets its own white icon (from Wisnu) as the thumbnail.
+ * Each event type uses its custom emoji (hios_gh_push / hios_gh_pr /
+ * hios_gh_release, uploaded to the guild) in the title, with a unicode
+ * fallback when the emoji isn't available.
  */
 
-const path = require("path");
-const { EmbedBuilder, AttachmentBuilder } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
+const { emojiMention } = require("./emojis");
 
-const ASSETS = path.join(__dirname, "assets");
-
-const ICON_FILES = { push: "push.png", pr: "pr.png", release: "release.png" };
 const COLORS = { push: 0x2da44e, pr: 0x8250df, pr_closed: 0x57606a, release: 0x0969da };
 const MAX_COMMITS_SHOWN = 10;
-
-function iconAttachment(kind) {
-  const file = ICON_FILES[kind];
-  return new AttachmentBuilder(path.join(ASSETS, file), { name: file });
-}
 
 function actorAuthor(event) {
   const a = event.actor || {};
@@ -32,7 +26,7 @@ function firstLine(s, max = 80) {
 }
 
 /** PushEvent -> one embed, commits listed inside (never one message per commit). */
-function buildPushEmbed(repo, event) {
+function buildPushEmbed(repo, event, emojis) {
   const p = event.payload || {};
   const branch = (p.ref || "").replace(/^refs\/heads\//, "") || "unknown";
   const commits = Array.isArray(p.commits) ? p.commits : [];
@@ -45,20 +39,18 @@ function buildPushEmbed(repo, event) {
   if (total > shown.length) lines.push(`*+${total - shown.length} more…*`);
 
   const n = total;
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setAuthor(actorAuthor(event))
-    .setTitle(`📦 ${n} commit${n === 1 ? "" : "s"} → ${repo}:${branch}`)
+    .setTitle(`${emojiMention(emojis, "push")} ${n} commit${n === 1 ? "" : "s"} → ${repo}:${branch}`)
     .setURL(`https://github.com/${repo}/commits/${branch}`)
     .setDescription(lines.length > 0 ? lines.join("\n") : "_No commit details._")
     .setColor(COLORS.push)
-    .setThumbnail(`attachment://${ICON_FILES.push}`)
     .setTimestamp(new Date(event.created_at))
     .setFooter({ text: `${repo} • push` });
-  return { embed, attachment: iconAttachment("push") };
 }
 
 /** PullRequestEvent -> opened / reopened / merged / closed. */
-function buildPREmbed(repo, event) {
+function buildPREmbed(repo, event, emojis) {
   const p = event.payload || {};
   const action = p.action;
   if (!["opened", "reopened", "closed"].includes(action)) return null;
@@ -73,100 +65,108 @@ function buildPREmbed(repo, event) {
     `by @${pr.user?.login || event.actor?.login || "unknown"} • \`${head}\` → \`${base}\`` +
     (pr.body ? `\n\n${firstLine(pr.body, 200)}` : "");
 
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setAuthor(actorAuthor(event))
-    .setTitle(`🔀 PR #${num} ${word}: ${firstLine(pr.title, 100)}`)
+    .setTitle(`${emojiMention(emojis, "pr")} PR #${num} ${word}: ${firstLine(pr.title, 100)}`)
     .setURL(pr.html_url || `https://github.com/${repo}/pull/${num}`)
     .setDescription(desc)
     .setColor(merged || action === "opened" ? COLORS.pr : COLORS.pr_closed)
-    .setThumbnail(`attachment://${ICON_FILES.pr}`)
     .setTimestamp(new Date(event.created_at))
     .setFooter({ text: `${repo} • pull request` });
-  return { embed, attachment: iconAttachment("pr") };
 }
 
 /** ReleaseEvent -> published only. */
-function buildReleaseEmbed(repo, event) {
+function buildReleaseEmbed(repo, event, emojis) {
   const p = event.payload || {};
   if (p.action !== "published") return null;
   const r = p.release || {};
   const tag = r.tag_name || "untagged";
 
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setAuthor(actorAuthor(event))
-    .setTitle(`🚀 ${repo} — ${tag} released`)
+    .setTitle(`${emojiMention(emojis, "release")} ${repo} — ${tag} released`)
     .setURL(r.html_url || `https://github.com/${repo}/releases`)
     .setDescription(
       (r.name ? `**${firstLine(r.name, 100)}**\n\n` : "") + (r.body ? firstLine(r.body, 300) : "_No release notes._")
     )
     .setColor(COLORS.release)
-    .setThumbnail(`attachment://${ICON_FILES.release}`)
     .setTimestamp(new Date(event.created_at))
     .setFooter({ text: `${repo} • release` });
-  return { embed, attachment: iconAttachment("release") };
 }
 
 /** Route one GitHub event to its embed builder. Returns null when uninteresting. */
-function buildEventPost(repo, event) {
+function buildEventPost(repo, event, emojis) {
   switch (event.type) {
     case "PushEvent":
-      return buildPushEmbed(repo, event);
+      return buildPushEmbed(repo, event, emojis);
     case "PullRequestEvent":
-      return buildPREmbed(repo, event);
+      return buildPREmbed(repo, event, emojis);
     case "ReleaseEvent":
-      return buildReleaseEmbed(repo, event);
+      return buildReleaseEmbed(repo, event, emojis);
     default:
       return null;
   }
 }
 
-/** Sample posts for the dashboard Test Preview (no network needed). */
-function buildSamples() {
+/** Sample embeds for the dashboard Test Preview (no network needed). */
+function buildSamples(emojis) {
   const now = new Date().toISOString();
   const actor = { login: "wisnurafi", avatar_url: "https://github.com/wisnurafi.png" };
-  const push = buildPushEmbed("wisnurafi/my-kait", {
-    actor,
-    created_at: now,
-    payload: {
-      ref: "refs/heads/main",
-      size: 2,
-      commits: [
-        { sha: "83e8c71abcdef", message: "fix: CTA di empty state tab Scheduled" },
-        { sha: "6489307abcdef", message: "fix: satu logika retry 429 untuk send/edit" },
-      ],
-    },
-  });
-  const pr = buildPREmbed("wisnurafi/my-kait", {
-    actor,
-    created_at: now,
-    type: "PullRequestEvent",
-    payload: {
-      action: "opened",
-      pull_request: {
-        number: 42,
-        title: "feat: dark mode for the editor",
-        html_url: "https://github.com/wisnurafi/my-kait/pull/42",
-        user: { login: "wisnurafi" },
-        head: { ref: "feat/dark-mode" },
-        base: { ref: "main" },
-        body: "Adds a dark theme toggle to the editor toolbar.",
+  const push = buildPushEmbed(
+    "wisnurafi/my-kait",
+    {
+      actor,
+      created_at: now,
+      payload: {
+        ref: "refs/heads/main",
+        size: 2,
+        commits: [
+          { sha: "83e8c71abcdef", message: "fix: CTA di empty state tab Scheduled" },
+          { sha: "6489307abcdef", message: "fix: satu logika retry 429 untuk send/edit" },
+        ],
       },
     },
-  });
-  const release = buildReleaseEmbed("wisnurafi/my-kait", {
-    actor,
-    created_at: now,
-    type: "ReleaseEvent",
-    payload: {
-      action: "published",
-      release: {
-        tag_name: "v2.1.0",
-        name: "Dark mode release",
-        html_url: "https://github.com/wisnurafi/my-kait/releases/tag/v2.1.0",
-        body: "Editor dark mode, bulk delete fix, and API docs accuracy.",
+    emojis
+  );
+  const pr = buildPREmbed(
+    "wisnurafi/my-kait",
+    {
+      actor,
+      created_at: now,
+      type: "PullRequestEvent",
+      payload: {
+        action: "opened",
+        pull_request: {
+          number: 42,
+          title: "feat: dark mode for the editor",
+          html_url: "https://github.com/wisnurafi/my-kait/pull/42",
+          user: { login: "wisnurafi" },
+          head: { ref: "feat/dark-mode" },
+          base: { ref: "main" },
+          body: "Adds a dark theme toggle to the editor toolbar.",
+        },
       },
     },
-  });
+    emojis
+  );
+  const release = buildReleaseEmbed(
+    "wisnurafi/my-kait",
+    {
+      actor,
+      created_at: now,
+      type: "ReleaseEvent",
+      payload: {
+        action: "published",
+        release: {
+          tag_name: "v2.1.0",
+          name: "Dark mode release",
+          html_url: "https://github.com/wisnurafi/my-kait/releases/tag/v2.1.0",
+          body: "Editor dark mode, bulk delete fix, and API docs accuracy.",
+        },
+      },
+    },
+    emojis
+  );
   return [push, pr, release].filter(Boolean);
 }
 
