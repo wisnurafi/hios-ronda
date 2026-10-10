@@ -50,7 +50,7 @@ function bubbleActivity(statusConfig) {
 function watchActivity(member, head, guild, applicationId) {
   const channelName = guild.channels.cache.get(head.channelId)?.name || "voice";
   return {
-    name: `👀 ${member.displayName} live in #${channelName}`,
+    name: `${member.displayName} live in #${channelName}`,
     type: ActivityType.Watching,
     // Required for the client to render this as a rich card. For bots the
     // user id IS the application id.

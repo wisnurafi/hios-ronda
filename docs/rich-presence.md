@@ -23,10 +23,10 @@
 > rich as the SOLE activity when watching (either/or: idle -> bubble,
 > watching -> rich card alone, no bubble). CONFIRMED — the card rendered.
 >
-> FINAL FORM (same day): art assets never loaded on the card (keys `movie`/
+> FINAL FORM (same day, 👀 dropped 2026-10-10 for a cleaner look): art assets never loaded on the card (keys `movie`/
 > `eye` uploaded, `application_id` present — images just didn't resolve), so
 > images were dropped entirely per Wisnu ("udah gausah pake image"). Card is
-> now text-only: name `👀 <displayName> live in #<channel>`, state
+> now text-only: name `<displayName> live in #<channel>`, state
 > "come watch together", elapsed timer. No details (channel already in the
 > name), no assets.
 

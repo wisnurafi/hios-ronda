@@ -41,7 +41,7 @@ async function handleVoiceStateUpdate(oldState, newState, client, config) {
       s.queue.push({ userId, channelId: newChannelId, startedAt: Date.now() });
       s.queue.sort((a, b) => a.startedAt - b.startedAt); // FIFO by live-start
       log(`${member.displayName} went live in #${newState.channel.name} (queue: ${s.queue.length})`);
-      await notifyLive(guild, member, newState.channel, config.notifyChannelId);
+      await notifyLive(guild, member, newState.channel, config);
     } else {
       // re-live during grace: refresh channel in case it changed
       const entry = s.queue.find((e) => e.userId === userId);
@@ -61,7 +61,7 @@ async function handleVoiceStateUpdate(oldState, newState, client, config) {
     if (leftVoice) {
       log(`${member.displayName} left voice -> removed from queue`);
       removeFromQueue(guild.id, userId);
-      await notifyEnded(guild, member, config.notifyChannelId);
+      await notifyEnded(guild, member, config);
       await reconcile(guild);
     refreshWatchStatus(client, config);
       return;
@@ -79,7 +79,7 @@ async function handleVoiceStateUpdate(oldState, newState, client, config) {
         }
         if (removeFromQueue(guild.id, userId)) {
           log(`${member.displayName} grace expired -> leaving`);
-          await notifyEnded(guild, member, config.notifyChannelId);
+          await notifyEnded(guild, member, config);
           await reconcile(guild);
     refreshWatchStatus(client, config);
         }

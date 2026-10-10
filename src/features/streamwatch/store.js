@@ -5,6 +5,20 @@ const { log } = require("../../log");
 const DATA_DIR = path.join(__dirname, "..", "..", "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "watch.json");
 
+// Placeholders supported in notifyMessage:
+//   {mention} -> pings the streamer (<@userId>)
+//   {name}    -> streamer's display name
+//   {channel} -> voice channel name
+const DEFAULT_MESSAGE = "🔴 @here {mention} is live in **#{channel}** — join to watch!";
+
+function defaults() {
+  return {
+    notifyEnabled: true,
+    notifyChannelId: null, // null -> fall back to NOTIFY_CHANNEL_ID env
+    notifyMessage: DEFAULT_MESSAGE,
+  };
+}
+
 let cache = null;
 
 function load() {
@@ -27,16 +41,36 @@ function save() {
   }
 }
 
+/** Get (and create if missing) the watch config for a guild. */
+function getWatchConfig(guildId) {
+  const all = load();
+  if (!all[guildId]) {
+    all[guildId] = defaults();
+    save();
+  }
+  return { ...defaults(), ...all[guildId] };
+}
+
+function updateWatchConfig(guildId, patch) {
+  const all = load();
+  all[guildId] = { ...defaults(), ...(all[guildId] || {}), ...patch };
+  save();
+  return all[guildId];
+}
+
 /** Go Live notification messages enabled for this guild? Default true. */
 function isNotifyEnabled(guildId) {
-  const cfg = load()[guildId];
-  return cfg ? cfg.notifyEnabled !== false : true;
+  return getWatchConfig(guildId).notifyEnabled !== false;
 }
 
 function setNotifyEnabled(guildId, enabled) {
-  const all = load();
-  all[guildId] = { ...(all[guildId] || {}), notifyEnabled: enabled };
-  save();
+  updateWatchConfig(guildId, { notifyEnabled: enabled });
 }
 
-module.exports = { isNotifyEnabled, setNotifyEnabled };
+module.exports = {
+  DEFAULT_MESSAGE,
+  getWatchConfig,
+  updateWatchConfig,
+  isNotifyEnabled,
+  setNotifyEnabled,
+};
