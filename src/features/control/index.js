@@ -26,8 +26,15 @@ let KNOWN_COMMANDS = [];
  * Enforce the control lockdown for a slash command interaction.
  * Returns true when the invocation is BLOCKED (denial already replied),
  * false when it is allowed. Call this first in every ChatInputCommand branch.
+ *
+ * Structural guarantee: component interactions (buttons, select menus,
+ * modals — e.g. the public Verify button, honeypot info button, dashboard
+ * controls) ALWAYS return false here and can never be blocked, no matter
+ * how this function gets called. The lockdown only ever gates slash
+ * commands, exactly like hios-bot's interactionCreate middleware.
  */
 async function enforceControlLockdown(interaction) {
+  if (!interaction.isChatInputCommand()) return false;
   try {
     const lockdown = loadControlLockdown(interaction.guildId);
     const block = checkControlLockdown(lockdown, {
