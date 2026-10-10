@@ -18,6 +18,7 @@ const {
 } = require("discord.js");
 const { log } = require("../../log");
 const { getConfig, updateConfig } = require("./store");
+const { isBotOwner } = require("../../owner");
 const { setupHoneypot } = require("./setup");
 const { getLogsWebhook, forgetLogsWebhook } = require("./webhook");
 const { emojiMention } = require("./emojis");
@@ -181,9 +182,10 @@ async function openDashboard(interaction) {
     await interaction.reply({ content: "This command only works in a server.", flags: MessageFlags.Ephemeral });
     return;
   }
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin && !isBotOwner(interaction.user.id)) {
     await interaction.reply({
-      content: "You need the **Administrator** permission to manage the honeypot.",
+      content: "You need the **Administrator** permission (or be a bot owner) to manage the honeypot.",
       flags: MessageFlags.Ephemeral,
     });
     return;

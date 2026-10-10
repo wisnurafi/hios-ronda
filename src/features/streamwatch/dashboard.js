@@ -16,6 +16,7 @@ const {
 } = require("discord.js");
 const { log } = require("../../log");
 const { getWatchConfig, updateWatchConfig, DEFAULT_MESSAGE } = require("./store");
+const { isBotOwner } = require("../../owner");
 
 const SESSION_MS = 600_000; // 10 minutes, like the honeypot dashboard
 const id = (...parts) => `watch:${parts.join(":")}`;
@@ -136,9 +137,10 @@ async function openWatchDashboard(interaction) {
     });
     return;
   }
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdmin && !isBotOwner(interaction.user.id)) {
     await interaction.reply({
-      content: "You need the **Administrator** permission to manage watch settings.",
+      content: "You need the **Administrator** permission (or be a bot owner) to manage watch settings.",
       flags: MessageFlags.Ephemeral,
     });
     return;

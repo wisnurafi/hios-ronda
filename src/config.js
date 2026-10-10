@@ -36,6 +36,13 @@ module.exports = {
   notifyChannelId: (process.env.NOTIFY_CHANNEL_ID || "").trim() || null,
   leaveGraceMs: Math.max(0, Number(process.env.LEAVE_GRACE_MS || 5000) || 5000),
 
+  // Bot owner user IDs (comma-separated in OWNER_IDS env var).
+  // Owners bypass the Administrator requirement on dashboards.
+  owners: (process.env.OWNER_IDS || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean),
+
   status: {
     // Visible text. For type=custom this is the custom-status text
     // (like hios-bot's "thinking about you"); for other types it is

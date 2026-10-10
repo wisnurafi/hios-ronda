@@ -1,9 +1,10 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
 
 const honeypotCommand = new SlashCommandBuilder()
   .setName("honeypot")
   .setDescription("Open the honeypot dashboard (spam trap settings)")
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+  // No setDefaultMemberPermissions: the dashboard itself enforces
+  // Administrator OR bot owner, so owners can use it without admin.
   .setDMPermission(false);
 
 // Deployment lives in src/commands.js — guild command PUT replaces the
