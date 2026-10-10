@@ -11,15 +11,20 @@
 const { Events } = require("discord.js");
 const cron = require("node-cron");
 const { log } = require("../../log");
-const { initDb } = require("./db");
+const { initDb, startReconnectLoop } = require("./db");
 const { handleVoiceStateUpdate, seedFromGuilds } = require("./tracker");
 const { runWeeklyAnnouncements } = require("./announce");
 const { handleBegadangCommand, handleRapotCommand } = require("./commands");
 
 function registerRonda(client, config) {
   // DB + auto-migrate first; tracker no-ops until the DB is ready.
+  // If the DB is unreachable (e.g. Neon still waking up), keep retrying
+  // in the background instead of staying disabled until a restart.
   initDb()
-    .then(() => seedFromGuilds(client))
+    .then(() => {
+      startReconnectLoop();
+      return seedFromGuilds(client);
+    })
     .catch((err) => log("ronda init error:", err.message));
 
   client.once(Events.ClientReady, async () => {

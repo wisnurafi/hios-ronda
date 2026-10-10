@@ -40,27 +40,52 @@ async function initDb() {
     log("ronda db: DATABASE_URL not set — voice stats disabled (bot still runs)");
     return;
   }
-  try {
-    pool = new Pool({
-      connectionString: url,
-      max: 3, // tiny footprint for the free tier
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 10_000,
-      ssl: { rejectUnauthorized: false }, // Neon requires SSL
-    });
-    pool.on("error", (err) => log("ronda db pool error:", err.message));
-    await pool.query("SELECT 1");
-    await pool.query(SCHEMA); // auto-migrate: no manual steps needed
-    enabled = true;
-    log("ronda db: connected, schema ready");
-  } catch (err) {
-    log("ronda db: unavailable — voice stats disabled:", err.message);
-    enabled = false;
+  // Neon free tier suspends compute when idle — the first connection wakes
+  // it up and can take 10-30s, so retry a few times before giving up.
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      await pool?.end().catch(() => {});
-    } catch {}
-    pool = null;
+      pool = new Pool({
+        connectionString: url,
+        max: 3, // tiny footprint for the free tier
+        idleTimeoutMillis: 30_000,
+        connectionTimeoutMillis: 30_000,
+        ssl: { rejectUnauthorized: false }, // Neon requires SSL
+      });
+      pool.on("error", (err) => log("ronda db pool error:", err.message));
+      await pool.query("SELECT 1");
+      await pool.query(SCHEMA); // auto-migrate: no manual steps needed
+      enabled = true;
+      log("ronda db: connected, schema ready");
+      return;
+    } catch (err) {
+      log(`ronda db: connect attempt ${attempt}/${attempts} failed:`, err.message);
+      try {
+        await pool?.end().catch(() => {});
+      } catch {}
+      pool = null;
+      if (attempt < attempts) await new Promise((r) => setTimeout(r, 5000));
+    }
   }
+  log("ronda db: unavailable — voice stats disabled (bot still runs)");
+  enabled = false;
+}
+
+/**
+ * Periodic re-attempt while disabled (e.g. Neon was still waking up at
+ * startup). Cheap: runs at most every 5 minutes, stops once connected.
+ */
+function startReconnectLoop() {
+  const timer = setInterval(async () => {
+    if (enabled) {
+      clearInterval(timer);
+      return;
+    }
+    if (!(process.env.DATABASE_URL || "").trim()) return;
+    log("ronda db: retrying connection...");
+    await initDb();
+  }, 5 * 60_000);
+  timer.unref?.();
 }
 
 /**
@@ -168,6 +193,7 @@ async function pruneOldWeeks() {
 module.exports = {
   initDb,
   isEnabled,
+  startReconnectLoop,
   recordSession,
   topNightOwls,
   weekRows,
