@@ -6,9 +6,6 @@
  * is deleted and re-uploaded automatically on next startup. Falls back to
  * Unicode when the bot lacks Manage Emojis permission.
  *
- * NOTE: collection/duel/leaderboard upload the *_white.png variants —
- * the originals are black line-art, nearly invisible on Discord's dark
- * theme (same reason hios-bot's tempvoice panel uses white Lucide icons).
  */
 
 const fs = require("fs");
@@ -23,9 +20,9 @@ const ASSETS = path.join(__dirname, "assets");
 // key -> { file, name, fallback }
 const ICONS = {
   roll: { file: "roll.png", name: "hios_kh_roll", fallback: "🎲" },
-  collection: { file: "collection_white.png", name: "hios_kh_collection", fallback: "🎒" },
-  duel: { file: "duel_white.png", name: "hios_kh_duel", fallback: "⚔️" },
-  leaderboard: { file: "leaderboard_white.png", name: "hios_kh_board", fallback: "🏆" },
+  collection: { file: "collection.png", name: "hios_kh_collection", fallback: "🎒" },
+  duel: { file: "duel.png", name: "hios_kh_duel", fallback: "⚔️" },
+  leaderboard: { file: "leaderboard.png", name: "hios_kh_board", fallback: "🏆" },
   mascot: { file: "mascot.png", name: "hios_kh_mascot", fallback: "👹" },
 };
 

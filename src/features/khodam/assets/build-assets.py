@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """One-time asset builder for the khodam game (run at dev time, outputs committed).
 
-1. White variants of the black line-art button icons (black is nearly
-   invisible on Discord's dark theme AND in the legend card).
-2. legend.png — the 4-button legend strip attached to the game panel.
+Builds legend.png — the 4-button legend strip attached to the game panel.
 
 Zero runtime cost: the bot only reads the committed PNGs.
 """
@@ -13,30 +11,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-BLACK_ICONS = ["collection.png", "duel.png", "leaderboard.png"]
-
 CELLS = [
-    ("roll.png", "CEK"),
-    ("collection_white.png", "KOLEKSI"),
-    ("duel_white.png", "DUEL"),
-    ("leaderboard_white.png", "RANK"),
+    ("roll.png", "ROLL"),
+    ("collection.png", "KOLEKSI"),
+    ("duel.png", "DUEL"),
+    ("leaderboard.png", "RANK"),
 ]
-
-
-def white_variant(src_name):
-    src = Image.open(os.path.join(HERE, src_name)).convert("RGBA")
-    px = src.load()
-    w, h = src.size
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = px[x, y]
-            if a > 0:
-                # black line-art -> white, keep alpha (and any shading)
-                lum = int(0.299 * r + 0.587 * g + 0.114 * b)
-                v = 255 - min(lum, 230)  # pure black -> white
-                v = max(v, 235)
-                px[x, y] = (v, v, v, a)
-    return src
 
 
 def find_font():
@@ -73,10 +53,6 @@ def build_legend():
 
 
 def main():
-    for name in BLACK_ICONS:
-        out = name.replace(".png", "_white.png")
-        white_variant(name).save(os.path.join(HERE, out))
-        print("wrote", out)
     build_legend()
 
 

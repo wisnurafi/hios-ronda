@@ -25,11 +25,13 @@ const { ROLLS_PER_DAY } = require("./util");
 const ASSETS = path.join(__dirname, "assets");
 const KHODAM_CHANNEL_NAME = "khodam";
 
+// All buttons share the Secondary (gray) style — clean uniform look,
+// and the full-color icons stay readable on it.
 const PANEL_BUTTONS = [
-  { key: "roll", customId: "hios_kh_roll", style: ButtonStyle.Primary },
+  { key: "roll", customId: "hios_kh_roll", style: ButtonStyle.Secondary },
   { key: "collection", customId: "hios_kh_collection", style: ButtonStyle.Secondary },
-  { key: "duel", customId: "hios_kh_duel", style: ButtonStyle.Danger },
-  { key: "leaderboard", customId: "hios_kh_board", style: ButtonStyle.Success },
+  { key: "duel", customId: "hios_kh_duel", style: ButtonStyle.Secondary },
+  { key: "leaderboard", customId: "hios_kh_board", style: ButtonStyle.Secondary },
 ];
 
 function buildPanelPayload(emojis) {
