@@ -103,7 +103,9 @@ async function postOrRefreshPanel(guild, emojis) {
   } else {
     msg = await channel.send(payload);
   }
-  updateConfig(guild.id, { channelId: channel.id, messageId: msg.id });
+  // channelId is unchanged here (we fetched the channel by the stored id),
+  // so only the message id needs updating.
+  updateConfig(guild.id, { messageId: msg.id });
   return msg;
 }
 
@@ -131,10 +133,56 @@ async function createKhodamChannel(guild) {
   return channel;
 }
 
+/**
+ * Delete the current panel message (best effort) and post a fresh one at
+ * the bottom of the channel, so the panel is always the latest message
+ * even as public game results pile up above it.
+ */
+async function repostPanel(guild, emojis) {
+  const cfg = getConfig(guild.id);
+  if (cfg.channelId && cfg.messageId) {
+    try {
+      const channel = await guild.channels.fetch(cfg.channelId).catch(() => null);
+      const msg = channel?.isTextBased()
+        ? await channel.messages.fetch(cfg.messageId).catch(() => null)
+        : null;
+      // Only delete our own panel — never touch anything else.
+      if (msg && msg.author.id === guild.members.me.id) {
+        await msg.delete().catch(() => {});
+      }
+    } catch {}
+    updateConfig(guild.id, { messageId: null });
+  }
+  await postOrRefreshPanel(guild, emojis);
+}
+
+// Per-guild promise chain: concurrent game results must not each post
+// their own panel (double-post race).
+const bumpQueues = new Map();
+
+/**
+ * Queue a panel bump for this guild. Fire-and-forget safe: never throws,
+ * never blocks the game interaction that triggered it.
+ */
+function bumpPanelToBottom(guild, emojis) {
+  const prev = bumpQueues.get(guild.id) || Promise.resolve();
+  const next = prev
+    .catch(() => {})
+    .then(() => repostPanel(guild, emojis))
+    .catch((err) => log.warn("khodam panel bump failed:", err.message));
+  bumpQueues.set(guild.id, next);
+  next.finally(() => {
+    if (bumpQueues.get(guild.id) === next) bumpQueues.delete(guild.id);
+  });
+  return next;
+}
+
 module.exports = {
   buildPanelPayload,
   fetchPanelMessage,
   postOrRefreshPanel,
+  repostPanel,
+  bumpPanelToBottom,
   createKhodamChannel,
   PANEL_BUTTONS,
 };

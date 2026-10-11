@@ -21,7 +21,8 @@ const {
 } = require("discord.js");
 const { log } = require("../../log");
 const { getConfig } = require("./store");
-const { emojiMention } = require("./emojis");
+const { emojiMention, ensureKhodamEmojis } = require("./emojis");
+const { bumpPanelToBottom } = require("./panel");
 const { pickKhodam, getKhodam, tierOf } = require("./roster");
 const { simulateDuel } = require("./battle");
 const {
@@ -65,6 +66,23 @@ function revealEmbed(display, khodam, note, remaining) {
 
 function keyOf(interaction) {
   return `${interaction.guildId}:${interaction.user.id}`;
+}
+
+/**
+ * Fire-and-forget: after a public game result, move the panel back to the
+ * bottom of the channel so it never gets buried. Never throws and never
+ * blocks the interaction that triggered it.
+ */
+function bumpPanel(interaction) {
+  try {
+    const guild = interaction.guild;
+    if (!guild) return;
+    ensureKhodamEmojis(guild)
+      .then((emojis) => bumpPanelToBottom(guild, emojis))
+      .catch((err) => log.warn("khodam bump failed:", err.message));
+  } catch (err) {
+    log.warn("khodam bump failed:", err.message);
+  }
 }
 
 async function gameReady(interaction) {
@@ -122,6 +140,7 @@ async function handleRoll(interaction) {
     await interaction.reply({
       embeds: [revealEmbed(display, khodam, "Khodam ini **sudah ada** di koleksimu.", remaining)],
     });
+    bumpPanel(interaction);
     return;
   }
 
@@ -132,6 +151,7 @@ async function handleRoll(interaction) {
         revealEmbed(display, khodam, "✨ **Khodam baru!** Ditambahkan ke koleksimu.", remaining),
       ],
     });
+    bumpPanel(interaction);
     return;
   }
 
@@ -331,6 +351,7 @@ async function handleDuelPick(interaction) {
 
   await interaction.deferUpdate();
   await interaction.channel.send({ embeds: [embed] }).catch(() => {});
+  bumpPanel(interaction);
   await interaction
     .editReply({ content: "⚔️ Duel selesai! Hasilnya udah dipost di channel.", components: [] })
     .catch(() => {});
@@ -391,6 +412,7 @@ async function handleBoard(interaction) {
         .setTimestamp(),
     ],
   });
+  bumpPanel(interaction);
 }
 
 // ------------------------------------------------------ replace picker ---
@@ -446,6 +468,7 @@ async function handleReplacePick(interaction) {
       ],
     })
     .catch(() => {});
+  bumpPanel(interaction);
 }
 
 // ---------------------------------------------------------------- router ---
