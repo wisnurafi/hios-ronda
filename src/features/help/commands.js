@@ -54,6 +54,11 @@ async function handleHelpCommand(interaction) {
         name: "✅ /verify",
         value: "One-click member verification — dashboard needs Administrator.",
         inline: false,
+      },
+      {
+        name: "👹 /khodam",
+        value: "Cek Khodam game — roll, collect, and duel spirits. Dashboard needs Administrator.",
+        inline: false,
       }
     )
     .setFooter({ text: "Dashboards are ephemeral and need Administrator (or bot owner)" })

@@ -14,6 +14,7 @@ const { deployCommands, commandNames } = require("./src/commands");
 const { registerControl } = require("./src/features/control");
 const { registerPing } = require("./src/features/ping");
 const { registerVerify } = require("./src/features/verify");
+const { registerKhodam } = require("./src/features/khodam");
 const { applyPresence } = require("./src/features/status");
 const { registerStreamwatch } = require("./src/features/streamwatch");
 const { registerHoneypot } = require("./src/features/honeypot");
@@ -30,8 +31,8 @@ async function main() {
     // ready (incl. reconnects) via registerStreamwatch below.
     applyPresence(c, config);
     // All slash commands (/honeypot, /watch, /begadang, /rapot, /help,
-    // /github, /control, /ping, /verify) deployed together in one payload —
-    // guild PUT replaces the whole command list.
+    // /github, /control, /ping, /verify, /khodam) deployed together in one
+    // payload — guild PUT replaces the whole command list.
     deployCommands(c).catch((err) => log("deployCommands error:", err.message));
     log(`online as ${c.user.tag}`);
   });
@@ -42,6 +43,7 @@ async function main() {
   registerControl(client, commandNames);
   registerPing(client);
   registerVerify(client);
+  registerKhodam(client);
   registerStreamwatch(client, config);
   registerHoneypot(client);
   registerRonda(client, config);

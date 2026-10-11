@@ -8,10 +8,11 @@ const { githubCommand } = require("./features/github/commands");
 const { controlCommand } = require("./features/control/commands");
 const { pingCommand } = require("./features/ping/commands");
 const { verifyCommand } = require("./features/verify/commands");
+const { khodamCommand } = require("./features/khodam/commands");
 
 // All slash commands in ONE list: guild command PUT *replaces* the whole
 // list, so deploying per-feature would make them delete each other.
-const allCommands = [honeypotCommand, watchCommand, begadangCommand, rapotCommand, helpCommand, githubCommand, controlCommand, pingCommand, verifyCommand];
+const allCommands = [honeypotCommand, watchCommand, begadangCommand, rapotCommand, helpCommand, githubCommand, controlCommand, pingCommand, verifyCommand, khodamCommand];
 
 // Command names for the /control except-autocomplete.
 const commandNames = allCommands.map((c) => c.name);
