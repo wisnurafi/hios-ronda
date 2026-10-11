@@ -25,13 +25,20 @@ const { ROLLS_PER_DAY } = require("./util");
 const ASSETS = path.join(__dirname, "assets");
 const KHODAM_CHANNEL_NAME = "khodam";
 
-// All buttons share the Secondary (gray) style — clean uniform look,
-// and the full-color icons stay readable on it.
+// Per-button color matched to the feature context, picked so the
+// full-color icon stays readable on it:
+// - ROLL: blurple — white/gray dice pops, the main action
+// - KOLEKSI: green — brown backpack reads well, gathering context
+// - DUEL: red — silver/gold swords pop, battle context (gaming convention)
+// - RANK: gray — yellow podium pops; avoids red/green which the podium
+//   icon itself already contains
+// Labels widen the buttons (Discord button height is fixed — this is the
+// only way to make them bigger/more visible). Labels match the legend.
 const PANEL_BUTTONS = [
-  { key: "roll", customId: "hios_kh_roll", style: ButtonStyle.Secondary },
-  { key: "collection", customId: "hios_kh_collection", style: ButtonStyle.Secondary },
-  { key: "duel", customId: "hios_kh_duel", style: ButtonStyle.Secondary },
-  { key: "leaderboard", customId: "hios_kh_board", style: ButtonStyle.Secondary },
+  { key: "roll", customId: "hios_kh_roll", label: "Roll", style: ButtonStyle.Primary },
+  { key: "collection", customId: "hios_kh_collection", label: "Koleksi", style: ButtonStyle.Success },
+  { key: "duel", customId: "hios_kh_duel", label: "Duel", style: ButtonStyle.Danger },
+  { key: "leaderboard", customId: "hios_kh_board", label: "Rank", style: ButtonStyle.Secondary },
 ];
 
 function buildPanelPayload(emojis) {
@@ -52,6 +59,7 @@ function buildPanelPayload(emojis) {
     row.addComponents(
       new ButtonBuilder()
         .setCustomId(b.customId)
+        .setLabel(b.label)
         .setEmoji(emojiMention(emojis, b.key))
         .setStyle(b.style)
     );
