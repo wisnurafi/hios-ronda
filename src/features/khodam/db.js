@@ -199,7 +199,10 @@ async function recordDuel(guildId, userId, khodamId, outcome) {
   }
 }
 
-/** Top duelists by total wins: [{ user_id, wins, draws, losses }]. */
+/**
+ * Top duelists by total wins: [{ user_id, wins, draws, losses }].
+ * Tiebreak: fewer losses first (1W-0L outranks 1W-1L), then more draws.
+ */
 async function leaderboardByWins(guildId, limit = 5) {
   if (!enabled) return [];
   try {
@@ -209,7 +212,7 @@ async function leaderboardByWins(guildId, limit = 5) {
         WHERE guild_id = $1
         GROUP BY user_id
        HAVING SUM(wins) > 0
-        ORDER BY wins DESC, draws DESC
+        ORDER BY wins DESC, losses ASC, draws DESC
         LIMIT $2`,
       [guildId, limit]
     );
