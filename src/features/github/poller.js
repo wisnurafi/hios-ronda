@@ -184,12 +184,22 @@ async function pollRepo(guild, hook, repo, token) {
   });
 }
 
+let tickCount = 0;
+const HEARTBEAT_EVERY = 30; // ticks; at a 2-min interval this = 1 hour
+
 /** One poll tick across all guilds. Never throws. */
 async function pollTick(client) {
   if (!isConfigured()) return;
   const repos = configuredRepos();
   const token = githubToken();
   log.debug(`github: tick start (${repos.length} repos)`);
+  // Info-level heartbeat so the logs show the feed is alive even when
+  // there's nothing new to post (healthy-but-quiet is indistinguishable
+  // from dead without this).
+  tickCount++;
+  if (tickCount % HEARTBEAT_EVERY === 1) {
+    log(`github: alive — watching ${repos.length} repo(s), poll every 2 min`);
+  }
   for (const [, guild] of client.guilds.cache) {
     const cfg = getConfig(guild.id);
     if (!cfg.enabled || !cfg.channelId) continue;
