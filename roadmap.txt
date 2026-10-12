@@ -1,0 +1,90 @@
+hios-ronda Roadmap / Structure Overview
+
+Goal
+- Keep this as a practical map of the codebase.
+- Show main folders and important files only (not every file).
+
+Root
+- index.js                    -> process entry point (hosting requirement: repo root), wires features
+- package.json                -> scripts, dependencies, project metadata
+- README.md                   -> setup and usage docs
+- CONTRIBUTING.md             -> contributor guide
+- SECURITY.md                 -> security policy
+- LICENSE                   -> MIT license
+- roadmap.txt                 -> this file
+- .env.example                -> all env vars with explanations
+- data/                       -> runtime JSON config/state (fail-open, gitignored)
+- docs/                       -> deep-dive notes (github-logs, voice-stats, rich-presence)
+- src/                        -> main bot application code
+
+src/
+- config.js                   -> all env config (bot, notify, grace, status, owners)
+- owner.js                    -> OWNER_IDS check (dashboard admin bypass)
+- log.js                      -> leveled logger (LOG_LEVEL), WIB timestamps, zero deps
+- client.js                   -> Discord client factory
+- commands.js                 -> ALL slash commands in ONE list, deployed per-guild on startup
+                               (guild PUT replaces the whole list — never deploy per-feature)
+
+- features/                   -> one folder per feature, each with index.js exposing
+                               register(client, config); slash commands in commands.js
+  - status/                   -> custom status bubble + rich "watching live" card
+                               (raw gateway opcode 3, single owner of presence;
+                                strict either/or: idle -> bubble, watching -> card)
+  - streamwatch/              -> auto-join whoever is Go Live
+    - state.js                -> per-guild FIFO queue
+    - presence.js             -> voice presence via raw gateway opcode 4 (no UDP/audio)
+    - reconcile.js            -> queue -> presence sync
+    - notify.js               -> live/end notifications (editable {mention}/{name}/{channel} template)
+    - handler.js              -> voiceStateUpdate logic
+    - watchstatus.js          -> dynamic status while watching
+    - dashboard.js / store.js -> /watch dashboard (notify channel, template, on/off)
+  - honeypot/                 -> visible spam-trap channel
+    - dashboard.js            -> /honeypot dashboard (setup, logs channel, punishment, exempts)
+    - handler.js              -> catch: plain-text quote + delete + punish + log
+    - setup.js                -> channel + warning message setup ({action} placeholder)
+    - webhook.js              -> "HIOS | Honeypot" webhook identity + avatar auto-sync
+    - emojis.js               -> hash-tracked custom icons (warn/info/honey), auto-refresh
+  - ronda/                    -> voice stats (needs DATABASE_URL / Neon)
+    - tracker.js              -> session start/end on VoiceStateUpdate (event-driven, no polling)
+    - db.js                   -> Neon pool + auto-migrate (CREATE TABLE IF NOT EXISTS)
+    - time.js                 -> WIB helpers (week buckets, night-minute overlap)
+    - announce.js             -> embed builders + scheduled sender (5-min cron tick, 30-min dedup)
+    - dashboard.js            -> /begadang (night owls) + /rapot (weekly report) dashboards
+  - github/                   -> push/PR/release feed via "HIOS | GitHub" webhook
+    - poller.js               -> 2-min tick: baseline + diff + post + hourly info heartbeat
+    - github.js               -> real-time API client (compare / pulls / releases)
+    - embeds.js               -> push/PR/release embed builders
+    - webhook.js / emojis.js  -> webhook identity + custom push/pr/release guild emojis
+    - store.js                -> per-guild config + poll state (data/github.json)
+    - dashboard.js            -> /github dashboard
+  - control/                  -> /control lockdown (channel|user|except + status)
+                               structurally scoped to slash commands only;
+                               JSON store, fail-open
+  - verify/                   -> one-click member verification
+    - dashboard.js            -> /verify dashboard (channel, role, embed copy, button label)
+    - handler.js / setup.js   -> public Verify button -> assign verified role
+    - store.js                -> data/verify.json
+  - khodam/                   -> Cek Khodam game (needs DATABASE_URL / Neon)
+    - roster.js               -> 51 khodams, fixed stats, 5 weighted tiers
+    - battle.js               -> turn-based duel sim (max 20 rounds -> draw)
+    - db.js                   -> 3 tables auto-migrated (collection, duel stats, daily rolls)
+    - panel.js / handler.js   -> public icon panel (auto-bumps to bottom)
+    - dashboard.js            -> /khodam admin dashboard
+    - khodam.test.js          -> unit tests (node --test, pure logic)
+  - ping/                     -> /ping (bot latency + API latency)
+  - help/                     -> /help
+
+Storage
+- Neon Postgres: ONLY per-user accumulative state that needs querying
+  (voice stats, khodam collection/duel/daily). Pooled connection string,
+  auto-migrate on startup, feature disables itself with a warning if unset.
+- data/*.json: per-guild feature config, fail-open.
+- Discord log channels: the archive for moderation/verify events (no DB).
+
+Notes
+- Modular by feature: each feature owns its commands, handlers, store, dashboard.
+- Slash commands are registered per-guild (instant) from the single list in src/commands.js.
+- Dashboards follow a fixed form: one command per feature, ephemeral,
+  admin-only (or OWNER_IDS), auto-close after 10 minutes.
+- Free-tier ceiling: event-driven only, no audio/UDP, no heavy deps.
+- Background features log an info-level heartbeat (a quiet feature must not look dead).

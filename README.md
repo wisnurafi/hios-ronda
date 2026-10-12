@@ -4,6 +4,14 @@ Patrol bot for Discord: Go Live streamwatch + honeypot spam trap + voice stats +
 
 > Honest note: Discord bots can't "watch" a video stream through the official API. What this bot does: join the streamer's voice channel as presence + manage the queue automatically.
 
+## hios-ronda vs hios-bot
+
+Two bots, two jobs. **[hios-bot](https://github.com/wisnurafi/hios-bot)** is the serious one: a server-management bot (forked from TitanBot, then trimmed) covering moderation, TempVoice rooms, tickets, verification gates, leveling, reaction roles, server stats, logging, and welcome automation. Only "featured" essentials get added there.
+
+**hios-ronda** is the playground: streamwatching, a honeypot spam trap, voice stats, a GitHub activity feed, and the Cek Khodam game. Fun and experimental features live here, not in hios-bot.
+
+They share some DNA — `/control` lockdown, `/ping`, and the one-click verify flow were ported between the two — but they run as separate bots with separate codebases.
+
 ## Commands
 
 | Command | What it does |
@@ -229,3 +237,11 @@ so registering per-feature would make them delete each other).
 ## Resource
 
 Lightweight: only gateway events + presence via opcodes 3/4 (no audio/UDP connection). Safe for free tiers, including hosts that block UDP.
+
+## Open source
+
+hios-ronda is open source under the [MIT License](LICENSE) — self-host it, fork it, break it, make it yours.
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — local setup, project conventions, PR checklist
+- [SECURITY.md](SECURITY.md) — how to report vulnerabilities
+- [roadmap.txt](roadmap.txt) — codebase structure map
