@@ -27,12 +27,22 @@ src/
 - client.js                   -> Discord client factory
 - commands.js                 -> ALL slash commands in ONE list, deployed per-guild on startup
                                (guild PUT replaces the whole list — never deploy per-feature)
+- db.js                       -> SHARED Postgres (Neon) pool: one pool for the whole bot.
+                               Features register schemas via registerSchema(name, sql);
+                               initDb()/startReconnectLoop() are idempotent
+- json-store.js               -> createStore({file, defaults, name}): shared JSON
+                               load/save/getConfig/updateConfig for feature config
+- emoji-sync.js               -> ensureEmojis(): shared hash-tracked custom-emoji
+                               sync (upload, reuse by name, auto-refresh on art
+                               change, unicode fallback); emojiMention() helper
 
 - features/                   -> one folder per feature, each with index.js exposing
                                register(client, config); slash commands in commands.js
   - status/                   -> custom status bubble + rich "watching live" card
                                (raw gateway opcode 3, single owner of presence;
                                 strict either/or: idle -> bubble, watching -> card)
+    - index.js                -> registerStatus(client, config)
+    - presence.js             -> the single presence writer (applyPresence)
   - streamwatch/              -> auto-join whoever is Go Live
     - state.js                -> per-guild FIFO queue
     - presence.js             -> voice presence via raw gateway opcode 4 (no UDP/audio)
@@ -46,10 +56,11 @@ src/
     - handler.js              -> catch: plain-text quote + delete + punish + log
     - setup.js                -> channel + warning message setup ({action} placeholder)
     - webhook.js              -> "HIOS | Honeypot" webhook identity + avatar auto-sync
-    - emojis.js               -> hash-tracked custom icons (warn/info/honey), auto-refresh
-  - ronda/                    -> voice stats (needs DATABASE_URL / Neon)
+    - emojis.js               -> icon table only (sync via src/emoji-sync.js)
+  - voice-stats/              -> voice stats (needs DATABASE_URL / Neon)
     - tracker.js              -> session start/end on VoiceStateUpdate (event-driven, no polling)
-    - db.js                   -> Neon pool + auto-migrate (CREATE TABLE IF NOT EXISTS)
+    - db.js                   -> schema + queries (pool is shared via src/db.js)
+    - store.js                -> per-guild config, nested per feature (data/ronda.json)
     - time.js                 -> WIB helpers (week buckets, night-minute overlap)
     - announce.js             -> embed builders + scheduled sender (5-min cron tick, 30-min dedup)
     - dashboard.js            -> /begadang (night owls) + /rapot (weekly report) dashboards
@@ -58,6 +69,7 @@ src/
     - github.js               -> real-time API client (compare / pulls / releases)
     - embeds.js               -> push/PR/release embed builders
     - webhook.js / emojis.js  -> webhook identity + custom push/pr/release guild emojis
+                               (emojis.js is an icon table only; sync via src/emoji-sync.js)
     - store.js                -> per-guild config + poll state (data/github.json)
     - dashboard.js            -> /github dashboard
   - control/                  -> /control lockdown (channel|user|except + status)
@@ -66,11 +78,14 @@ src/
   - verify/                   -> one-click member verification
     - dashboard.js            -> /verify dashboard (channel, role, embed copy, button label)
     - handler.js / setup.js   -> public Verify button -> assign verified role
-    - store.js                -> data/verify.json
+    - store.js                -> data/verify.json (via src/json-store.js)
+    - emojis.js               -> icon table only (sync via src/emoji-sync.js)
   - khodam/                   -> Cek Khodam game (needs DATABASE_URL / Neon)
     - roster.js               -> 51 khodams, fixed stats, 5 weighted tiers
     - battle.js               -> turn-based duel sim (max 20 rounds -> draw)
-    - db.js                   -> 3 tables auto-migrated (collection, duel stats, daily rolls)
+    - db.js                   -> 3 schemas auto-migrated (pool is shared via src/db.js)
+    - store.js                -> data/khodam.json (via src/json-store.js)
+    - emojis.js               -> icon table only (sync via src/emoji-sync.js)
     - panel.js / handler.js   -> public icon panel (auto-bumps to bottom)
     - dashboard.js            -> /khodam admin dashboard
     - khodam.test.js          -> unit tests (node --test, pure logic)
@@ -79,9 +94,10 @@ src/
 
 Storage
 - Neon Postgres: ONLY per-user accumulative state that needs querying
-  (voice stats, khodam collection/duel/daily). Pooled connection string,
-  auto-migrate on startup, feature disables itself with a warning if unset.
-- data/*.json: per-guild feature config, fail-open.
+  (voice stats, khodam collection/duel/daily). ONE shared pool (src/db.js,
+  max 3 connections); features register schemas, auto-migrate on startup;
+  everything degrades with a warning if DATABASE_URL is unset.
+- data/*.json: per-guild feature config, fail-open (via src/json-store.js).
 - Discord log channels: the archive for moderation/verify events (no DB).
 
 Notes

@@ -57,7 +57,9 @@ Things to know before you touch the code:
 
 - **CommonJS** (`require` / `module.exports`) — this repo is not ESM. Match the surrounding style.
 - **Slash commands live in one list** (`src/commands.js`) and are deployed per-guild on startup. Guild command PUT *replaces* the whole list, so always add new commands to that single list — never deploy per-feature, or commands will delete each other.
-- **Config is JSON, fail-open** (`data/*.json`). The bot must keep running when config is missing or corrupt.
+- **Config is JSON, fail-open** (`data/*.json`) via `src/json-store.js` (`createStore({file, defaults, name})`). The bot must keep running when config is missing or corrupt. Features with genuinely different access semantics (control, streamwatch, voice-stats, github) keep custom accessors but reuse its `load()`/`save()`.
+- **One shared Postgres pool** (`src/db.js`). DB-backed features register their schema (`db.registerSchema(name, sql)`) and query via `db.getPool()` guarded by `db.isEnabled()` — never create a second pool.
+- **Custom emojis go through `src/emoji-sync.js`** (`ensureEmojis`). Your feature's `emojis.js` only declares the icon table (`{file, name, fallback}`) and keeps its own export names.
 - **Neon is only for per-user accumulative state** (voice stats, khodam data). Tables auto-migrate on startup (`CREATE TABLE IF NOT EXISTS`) — no manual migrations. Everything else (moderation logs, verify audit trail) lives in Discord log channels, not the DB.
 - **Dashboards follow a fixed form**: one command per feature, ephemeral, admin-only (or bot owner via `OWNER_IDS`), auto-close after 10 minutes of inactivity, channel picker that includes announcement channels.
 - **Announcements and embed copy are English**; keep it that way.

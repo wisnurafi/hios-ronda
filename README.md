@@ -170,10 +170,15 @@ hios-ronda/
     config.js               # all env config (bot, notify, grace, status, owners)
     owner.js                # OWNER_IDS check
     log.js                  # leveled logger (LOG_LEVEL), WIB timestamps
+    db.js                   # SHARED Postgres pool (one for the bot) + schema registry
+    json-store.js           # createStore(): shared JSON load/save/getConfig/updateConfig
+    emoji-sync.js           # ensureEmojis(): shared hash-tracked custom-emoji sync
     client.js               # Discord client factory
     commands.js             # all slash commands registered in one list (per-guild deploy)
     features/
       status/               # custom status + rich watch card (raw opcode 3, single owner)
+        index.js            # registerStatus(client, config)
+        presence.js         # the single presence writer (applyPresence)
       streamwatch/          # auto-join whoever is live
         index.js            # event wiring
         state.js            # per-guild FIFO queue
@@ -183,30 +188,30 @@ hios-ronda/
         handler.js          # voiceStateUpdate logic
         watchstatus.js      # dynamic status: rich card while watching
         dashboard.js        # /watch dashboard
-        store.js            # per-guild watch config
+        store.js            # per-guild watch config (via json-store)
         commands.js
       honeypot/             # visible spam trap
         dashboard.js        # /honeypot dashboard
         handler.js          # catch: quote + delete + punish
         setup.js            # channel + warning message setup
         webhook.js          # "HIOS | Honeypot" webhook identity + avatar sync
-        emojis.js           # hash-tracked custom icons (warn/info/honey)
-        store.js
+        emojis.js           # icon table (sync via src/emoji-sync.js)
+        store.js            # (via json-store)
         commands.js
-      ronda/                # voice stats (Neon): night owls + weekly report
+      voice-stats/          # voice stats (Neon): night owls + weekly report
         tracker.js          # session start/end on VoiceStateUpdate
-        db.js               # Neon pool + auto-migrate
+        db.js               # schema + queries (pool shared via src/db.js)
         time.js             # WIB helpers
         announce.js         # embed builders + scheduled sender
         dashboard.js        # /begadang + /rapot dashboards
-        store.js            # per-guild config (data/ronda.json)
+        store.js            # per-guild config, nested per feature (data/ronda.json)
         commands.js
       github/               # push/PR/release feed via "HIOS | GitHub" webhook
         poller.js           # 2-min tick, baseline + diff + post + hourly heartbeat
         github.js           # real-time API client (compare/pulls/releases)
         embeds.js           # push/PR/release embed builders
         webhook.js          # webhook identity + avatar
-        emojis.js           # custom push/pr/release guild emojis
+        emojis.js           # icon table (sync via src/emoji-sync.js)
         dashboard.js        # /github dashboard
         store.js            # per-guild config + poll state (data/github.json)
         commands.js

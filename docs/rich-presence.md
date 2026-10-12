@@ -99,7 +99,7 @@ owner for presence.
       (`movie` = large image, `eye` = small image) — manual step, cannot be done from here
 - [x] Decide activity type + copy (name/details/state) — Watching,
       `"<displayName> live"`, `Live in #<channel>`, `come watch together`
-- [x] Implement raw opcode-3 sender — `src/features/status/richPresence.js`,
+- [x] Implement raw opcode-3 sender — `src/features/status/presence.js`,
       the single owner of presence (bubble + rich card in one payload)
 - [x] Make sure nothing else overwrites it — `setPresence`/`setActivity`
       no longer called anywhere; `refreshWatchStatus` delegates to the sender

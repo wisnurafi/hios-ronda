@@ -1,14 +1,13 @@
 /**
  * Per-guild config for the GitHub logs feature (polling-based).
- * JSON file store, same pattern as the other features.
+ * load/save come from src/json-store.js; getConfig keeps this feature's
+ * merge-copy semantics (returns a copy with defaults filled in, so new
+ * default keys appear for old configs).
  */
 
-const fs = require("fs");
-const path = require("path");
-const { log } = require("../../log");
+const { createStore } = require("../../json-store");
 
-const DATA_DIR = path.join(__dirname, "..", "..", "..", "data");
-const DATA_FILE = path.join(DATA_DIR, "github.json");
+const store = createStore({ file: "github.json", name: "github" });
 
 function defaults() {
   return {
@@ -23,43 +22,21 @@ function defaults() {
   };
 }
 
-let cache = null;
-
-function load() {
-  if (cache) return cache;
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    cache = fs.existsSync(DATA_FILE) ? JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) : {};
-  } catch (err) {
-    log.warn("github store load failed:", err.message);
-    cache = {};
-  }
-  return cache;
-}
-
-function save() {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(cache, null, 2));
-  } catch (err) {
-    log.warn("github store save failed:", err.message);
-  }
-}
-
 function getConfig(guildId) {
-  const all = load();
+  const all = store.load();
   if (!all[guildId]) {
     all[guildId] = defaults();
-    save();
+    store.save();
   }
   const g = all[guildId];
   return { ...defaults(), ...g, lastEventIds: { ...(g.lastEventIds || {}) } };
 }
 
 function updateConfig(guildId, patch) {
-  const all = load();
+  const all = store.load();
   const cur = getConfig(guildId);
   all[guildId] = { ...cur, ...patch };
-  save();
+  store.save();
   return all[guildId];
 }
 

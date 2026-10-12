@@ -1,5 +1,5 @@
 /**
- * Ronda voice-stats feature: night-owl leaderboard + weekly patrol report.
+ * Voice-stats feature: night-owl leaderboard + weekly patrol report.
  *
  *  - Tracks voice sessions (VoiceStateUpdate) into Postgres (Neon).
  *  - Auto-migrates schema on startup; degrades gracefully when the DB
@@ -18,7 +18,7 @@ const { handleVoiceStateUpdate, seedFromGuilds } = require("./tracker");
 const { runDueAnnouncements } = require("./announce");
 const { handleBegadangCommand, handleRapotCommand } = require("./commands");
 
-function registerRonda(client, config) {
+function registerVoiceStats(client, config) {
   // DB + auto-migrate first; tracker no-ops until the DB is ready.
   // If the DB is unreachable (e.g. Neon still waking up), keep retrying
   // in the background instead of staying disabled until a restart.
@@ -27,11 +27,11 @@ function registerRonda(client, config) {
       startReconnectLoop();
       return seedFromGuilds(client);
     })
-    .catch((err) => log("ronda init error:", err.message));
+    .catch((err) => log("voice-stats init error:", err.message));
 
   client.once(Events.ClientReady, async () => {
     // Seed sessions that were already active before (re)start.
-    await seedFromGuilds(client).catch((err) => log("ronda seed error:", err.message));
+    await seedFromGuilds(client).catch((err) => log("voice-stats seed error:", err.message));
 
     // Announcement scheduler: every 5 minutes each guild's /begadang and
     // /rapot fire on their own configured day/time (WIB wall-clock).
@@ -40,14 +40,14 @@ function registerRonda(client, config) {
         "*/5 * * * *",
         () => {
           runDueAnnouncements(client).catch((err) =>
-            log.warn("ronda announce error:", err.message)
+            log.warn("voice-stats announce error:", err.message)
           );
         },
         { timezone: "Asia/Jakarta" }
       );
-      log("ronda: announcement scheduler running (5-min tick, per-guild schedules)");
+      log("voice-stats: announcement scheduler running (5-min tick, per-guild schedules)");
     } catch (err) {
-      log.warn("ronda: failed to schedule announcements:", err.message);
+      log.warn("voice-stats: failed to schedule announcements:", err.message);
     }
   });
 
@@ -55,7 +55,7 @@ function registerRonda(client, config) {
     try {
       await handleVoiceStateUpdate(oldState, newState);
     } catch (err) {
-      log.warn("ronda voiceStateUpdate error:", err.message);
+      log.warn("voice-stats voiceStateUpdate error:", err.message);
     }
   });
 
@@ -69,10 +69,10 @@ function registerRonda(client, config) {
         await handleRapotCommand(interaction);
       }
     } catch (err) {
-      log.warn("ronda interaction error:", err.message);
+      log.warn("voice-stats interaction error:", err.message);
     }
   });
 
 }
 
-module.exports = { registerRonda };
+module.exports = { registerVoiceStats };

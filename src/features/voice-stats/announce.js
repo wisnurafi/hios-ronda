@@ -201,7 +201,7 @@ let lastPruneDay = null;
 async function runDueAnnouncements(client) {
   if (!isEnabled()) return; // DB down: stay quiet, the reconnect loop handles it
   const now = Date.now();
-  log.debug("ronda: due-check tick");
+  log.debug("voice-stats: due-check tick");
   const lastWeek = weekStartWeeksAgo(now, 1);
   for (const [, guild] of client.guilds.cache) {
     const cfg = getGuildConfig(guild.id);
@@ -222,7 +222,7 @@ async function runDueAnnouncements(client) {
     try {
       await pruneOldWeeks();
     } catch (err) {
-      log.warn("ronda prune error:", err.message);
+      log.warn("voice-stats prune error:", err.message);
     }
   }
 }

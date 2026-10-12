@@ -1,14 +1,11 @@
 /**
  * Custom emojis for the GitHub logs embeds (push / PR / release icons).
- * Uploaded to the guild once and reused by name — same pattern as the
- * honeypot icons and hios-bot's tempvoice interface icons.
- * Falls back to unicode when the bot can't manage emojis.
+ * Uploaded to the guild once and reused by name. Falls back to unicode
+ * when the bot can't manage emojis. Sync logic lives in src/emoji-sync.js.
  */
 
-const fs = require("fs");
 const path = require("path");
-const { PermissionFlagsBits } = require("discord.js");
-const { log } = require("../../log");
+const { ensureEmojis, emojiMention: mention } = require("../../emoji-sync");
 const { getConfig, updateConfig } = require("./store");
 
 const ASSETS = path.join(__dirname, "assets");
@@ -20,58 +17,33 @@ const ICONS = {
   release: { file: "release.png", name: "hios_gh_release", fallback: "🚀" },
 };
 
+// md5 of the bundled art from before hash tracking existed — existing
+// installs keep their emojis without a one-time re-upload churn.
+const LEGACY_HASHES = {
+  push: "953afb76f32c8b466633b43820d2a8bb",
+  pr: "cffb0babb8e6078c7cd13b73d358bdb0",
+  release: "801ebb541c58249e86b0e9916899bddd",
+};
+
 /**
- * Ensure the white icons exist as custom emojis. Reuses by name.
+ * Ensure the white icons exist as custom emojis. Reuses by name;
+ * auto-refreshes when the bundled art changes.
  * Returns { push: {id,name}|null, pr, release } and persists to config.
  */
 async function ensureGithubEmojis(guild) {
-  const cfg = getConfig(guild.id);
-  const stored = cfg.emojis || {};
-  const out = {};
-
-  const canManage = guild.members.me?.permissions.has(PermissionFlagsBits.ManageEmojisAndStickers);
-  for (const [key, icon] of Object.entries(ICONS)) {
-    // reuse stored emoji if it still exists
-    if (stored[key]?.id) {
-      const existing = guild.emojis.cache.get(stored[key].id);
-      if (existing) {
-        out[key] = { id: existing.id, name: existing.name };
-        continue;
-      }
-    }
-    // reuse by name
-    const byName = guild.emojis.cache.find((e) => e.name === icon.name);
-    if (byName) {
-      out[key] = { id: byName.id, name: byName.name };
-      continue;
-    }
-    if (!canManage) {
-      out[key] = null;
-      continue;
-    }
-    try {
-      const created = await guild.emojis.create({
-        attachment: fs.readFileSync(path.join(ASSETS, icon.file)),
-        name: icon.name,
-        reason: "hios-ronda github logs icons",
-      });
-      out[key] = { id: created.id, name: created.name };
-      log(`uploaded emoji :${icon.name}:`);
-    } catch (err) {
-      log.warn(`emoji upload failed (:${icon.name}:): ${err.message}`);
-      out[key] = null;
-    }
-  }
-
-  updateConfig(guild.id, { emojis: out });
-  return out;
+  return ensureEmojis(guild, {
+    assetsDir: ASSETS,
+    icons: ICONS,
+    getConfig,
+    updateConfig,
+    feature: "github",
+    legacyHashes: LEGACY_HASHES,
+  });
 }
 
 /** `<:name:id>` mention, or the unicode fallback. */
 function emojiMention(emojis, key) {
-  const e = emojis?.[key];
-  if (e?.id) return `<:${e.name}:${e.id}>`;
-  return ICONS[key].fallback;
+  return mention(ICONS, emojis, key);
 }
 
 module.exports = { ensureGithubEmojis, emojiMention, ICONS };

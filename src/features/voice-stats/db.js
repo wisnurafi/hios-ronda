@@ -1,13 +1,14 @@
 /**
- * Postgres (Neon) storage for ronda voice stats.
+ * Postgres (Neon) storage for voice stats (night owls + weekly patrol report).
  *
- * Auto-migrates on startup: CREATE TABLE IF NOT EXISTS, so no manual
- * migration is ever needed. If DATABASE_URL is unset or unreachable, the
- * module stays disabled and the bot keeps running — stats for that period
- * are simply not recorded (logged as a warning).
+ * Connection is owned by the shared pool in src/db.js (one pool for the
+ * whole bot). This module registers its schema and exposes the stats
+ * queries. If DATABASE_URL is unset or unreachable, the module stays
+ * disabled and the bot keeps running — stats for that period are simply
+ * not recorded (logged as a warning).
  */
 
-const { Pool } = require("pg");
+const db = require("../../db");
 const { log } = require("../../log");
 const { weekStartWeeksAgo } = require("./time");
 
@@ -26,76 +27,16 @@ CREATE TABLE IF NOT EXISTS ronda_voice_stats (
 );
 `;
 
-let pool = null;
-let enabled = false;
-
-function isEnabled() {
-  return enabled;
-}
-
-/** Connect + auto-migrate. Never throws — degrades to disabled on failure. */
-async function initDb() {
-  const url = (process.env.DATABASE_URL || "").trim();
-  if (!url) {
-    log.warn("ronda db: DATABASE_URL not set — voice stats disabled (bot still runs)");
-    return;
-  }
-  // Neon free tier suspends compute when idle — the first connection wakes
-  // it up and can take 10-30s, so retry a few times before giving up.
-  const attempts = 3;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      pool = new Pool({
-        connectionString: url,
-        max: 3, // tiny footprint for the free tier
-        idleTimeoutMillis: 30_000,
-        connectionTimeoutMillis: 30_000,
-        ssl: { rejectUnauthorized: false }, // Neon requires SSL
-      });
-      pool.on("error", (err) => log("ronda db pool error:", err.message));
-      await pool.query("SELECT 1");
-      await pool.query(SCHEMA); // auto-migrate: no manual steps needed
-      enabled = true;
-      log("ronda db: connected, schema ready");
-      return;
-    } catch (err) {
-      log.warn(`ronda db: connect attempt ${attempt}/${attempts} failed:`, err.message);
-      try {
-        await pool?.end().catch(() => {});
-      } catch {}
-      pool = null;
-      if (attempt < attempts) await new Promise((r) => setTimeout(r, 5000));
-    }
-  }
-  log.warn("ronda db: unavailable — voice stats disabled (bot still runs)");
-  enabled = false;
-}
-
-/**
- * Periodic re-attempt while disabled (e.g. Neon was still waking up at
- * startup). Cheap: runs at most every 5 minutes, stops once connected.
- */
-function startReconnectLoop() {
-  const timer = setInterval(async () => {
-    if (enabled) {
-      clearInterval(timer);
-      return;
-    }
-    if (!(process.env.DATABASE_URL || "").trim()) return;
-    log("ronda db: retrying connection...");
-    await initDb();
-  }, 5 * 60_000);
-  timer.unref?.();
-}
+db.registerSchema("voice-stats", SCHEMA);
 
 /**
  * Record one finished voice session. Read-modify-write in JS (single
  * process, low write volume) so per-channel minutes merge correctly.
  */
 async function recordSession({ guildId, userId, weekStart, minutes, nightMinutes, channelId }) {
-  if (!enabled) return;
+  if (!db.isEnabled()) return;
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.getPool().query(
       `SELECT total_minutes, night_minutes, sessions, longest_session_minutes, channels
          FROM ronda_voice_stats
         WHERE guild_id = $1 AND user_id = $2 AND week_start = $3`,
@@ -110,7 +51,7 @@ async function recordSession({ guildId, userId, weekStart, minutes, nightMinutes
     };
     const channels = { ...(prev.channels || {}) };
     if (channelId) channels[channelId] = (channels[channelId] || 0) + minutes;
-    await pool.query(
+    await db.getPool().query(
       `INSERT INTO ronda_voice_stats
          (guild_id, user_id, week_start, total_minutes, night_minutes,
           sessions, longest_session_minutes, channels, updated_at)
@@ -134,15 +75,15 @@ async function recordSession({ guildId, userId, weekStart, minutes, nightMinutes
       ]
     );
   } catch (err) {
-    log.warn("ronda db: recordSession failed:", err.message);
+    log.warn("voice-stats db: recordSession failed:", err.message);
   }
 }
 
 /** Top night owls for a week: [{ user_id, night_minutes }]. */
 async function topNightOwls(guildId, weekStart, limit = 5) {
-  if (!enabled) return [];
+  if (!db.isEnabled()) return [];
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.getPool().query(
       `SELECT user_id, night_minutes
          FROM ronda_voice_stats
         WHERE guild_id = $1 AND week_start = $2 AND night_minutes > 0
@@ -152,16 +93,16 @@ async function topNightOwls(guildId, weekStart, limit = 5) {
     );
     return rows;
   } catch (err) {
-    log.warn("ronda db: topNightOwls failed:", err.message);
+    log.warn("voice-stats db: topNightOwls failed:", err.message);
     return [];
   }
 }
 
 /** All rows for a week (for the patrol report aggregates). */
 async function weekRows(guildId, weekStart) {
-  if (!enabled) return [];
+  if (!db.isEnabled()) return [];
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.getPool().query(
       `SELECT user_id, total_minutes, night_minutes, sessions,
               longest_session_minutes, channels
          FROM ronda_voice_stats
@@ -170,30 +111,31 @@ async function weekRows(guildId, weekStart) {
     );
     return rows;
   } catch (err) {
-    log.warn("ronda db: weekRows failed:", err.message);
+    log.warn("voice-stats db: weekRows failed:", err.message);
     return [];
   }
 }
 
 /** Drop data older than 8 weeks (keeps the free tier small). */
 async function pruneOldWeeks() {
-  if (!enabled) return;
+  if (!db.isEnabled()) return;
   try {
     const cutoff = weekStartWeeksAgo(Date.now(), 8);
-    const res = await pool.query(
+    const res = await db.getPool().query(
       `DELETE FROM ronda_voice_stats WHERE week_start < $1::date`,
       [cutoff]
     );
     if (res.rowCount > 0) log(`ronda db: pruned ${res.rowCount} old week rows`);
   } catch (err) {
-    log.warn("ronda db: pruneOldWeeks failed:", err.message);
+    log.warn("voice-stats db: pruneOldWeeks failed:", err.message);
   }
 }
 
 module.exports = {
-  initDb,
-  isEnabled,
-  startReconnectLoop,
+  // Shared pool (src/db.js) — same names as before, so call sites don't change.
+  initDb: db.initDb,
+  isEnabled: db.isEnabled,
+  startReconnectLoop: db.startReconnectLoop,
   recordSession,
   topNightOwls,
   weekRows,

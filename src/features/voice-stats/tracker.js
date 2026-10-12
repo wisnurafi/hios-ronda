@@ -73,7 +73,7 @@ async function handleVoiceStateUpdate(oldState, newState) {
     }
     // mute/deafen/stream toggles: session continues untouched
   } catch (err) {
-    log.warn("ronda tracker error:", err.message);
+    log.warn("voice-stats tracker error:", err.message);
   }
 }
 

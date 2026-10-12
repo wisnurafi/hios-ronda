@@ -29,7 +29,7 @@ processing, no polling — just `VoiceStateUpdate` timestamps.
 ## Storage (Neon Postgres)
 
 - Connection: `DATABASE_URL` env (use the **pooled** Neon string).
-- `src/features/ronda/db.js` auto-migrates on startup
+- `src/features/voice-stats/db.js` auto-migrates on startup
   (`CREATE TABLE IF NOT EXISTS ronda_voice_stats`) — no manual migration.
 - Writes happen **only when a voice session ends** (1 UPSERT per session).
 - If the DB is unset/unreachable, the feature disables itself with a warning;
@@ -38,12 +38,12 @@ processing, no polling — just `VoiceStateUpdate` timestamps.
 
 ## Files
 
-- `src/features/ronda/time.js` — WIB helpers (tested: week buckets, night overlap)
-- `src/features/ronda/db.js` — pool, auto-migrate, upsert, queries
-- `src/features/ronda/tracker.js` — session start/end on VoiceStateUpdate,
+- `src/features/voice-stats/time.js` — WIB helpers (tested: week buckets, night overlap)
+- `src/features/voice-stats/db.js` — schema + queries (pool is shared via `src/db.js`)
+- `src/features/voice-stats/tracker.js` — session start/end on VoiceStateUpdate,
   restart seeding from live voice states (bots excluded)
-- `src/features/ronda/announce.js` — embed builders + weekly sender
-- `src/features/ronda/store.js` — per-guild dashboard config (`data/ronda.json`)
-- `src/features/ronda/dashboard.js` — `/begadang` + `/rapot` dashboards
-- `src/features/ronda/commands.js` — slash command definitions
-- `src/features/ronda/index.js` — wiring (cron: `0 9 * * 1`, Asia/Jakarta)
+- `src/features/voice-stats/announce.js` — embed builders + weekly sender
+- `src/features/voice-stats/store.js` — per-guild dashboard config (`data/ronda.json`)
+- `src/features/voice-stats/dashboard.js` — `/begadang` + `/rapot` dashboards
+- `src/features/voice-stats/commands.js` — slash command definitions
+- `src/features/voice-stats/index.js` — wiring (cron: `0 9 * * 1`, Asia/Jakarta)

@@ -1,9 +1,13 @@
-const fs = require("fs");
-const path = require("path");
-const { log } = require("../../log");
+/**
+ * Watch store — JSON file, keyed by guild id.
+ * load/save come from src/json-store.js; the accessors stay custom
+ * because they merge defaults over stored config (so new default keys
+ * appear for old configs) instead of returning the live ref.
+ */
 
-const DATA_DIR = path.join(__dirname, "..", "..", "..", "data");
-const DATA_FILE = path.join(DATA_DIR, "watch.json");
+const { createStore } = require("../../json-store");
+
+const store = createStore({ file: "watch.json", name: "watch" });
 
 // Placeholders supported in notifyMessage:
 //   {mention} -> pings the streamer (<@userId>)
@@ -19,42 +23,20 @@ function defaults() {
   };
 }
 
-let cache = null;
-
-function load() {
-  if (cache) return cache;
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    cache = fs.existsSync(DATA_FILE) ? JSON.parse(fs.readFileSync(DATA_FILE, "utf8")) : {};
-  } catch (err) {
-    log.warn("watch store load failed:", err.message);
-    cache = {};
-  }
-  return cache;
-}
-
-function save() {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(cache, null, 2));
-  } catch (err) {
-    log.warn("watch store save failed:", err.message);
-  }
-}
-
-/** Get (and create if missing) the watch config for a guild. */
+/** Get the watch config for a guild (defaults merged over stored values). */
 function getWatchConfig(guildId) {
-  const all = load();
+  const all = store.load();
   if (!all[guildId]) {
     all[guildId] = defaults();
-    save();
+    store.save();
   }
   return { ...defaults(), ...all[guildId] };
 }
 
 function updateWatchConfig(guildId, patch) {
-  const all = load();
+  const all = store.load();
   all[guildId] = { ...defaults(), ...(all[guildId] || {}), ...patch };
-  save();
+  store.save();
   return all[guildId];
 }
 

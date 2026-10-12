@@ -8,14 +8,14 @@
  * Note: on ephemeral disk (free hosting) a wipe resets the config to
  * "no restriction". Like hios-bot's DB-timeout path, we fail OPEN — the
  * bot stays usable rather than locking everyone out.
+ *
+ * load/save come from src/json-store.js; the accessors stay custom
+ * because lockdown entries are normalized on every read/write.
  */
 
-const fs = require("fs");
-const path = require("path");
-const { log } = require("../../log");
+const { createStore } = require("../../json-store");
 
-const DATA_DIR = path.join(__dirname, "..", "..", "..", "data");
-const DATA_FILE = path.join(DATA_DIR, "control.json");
+const store = createStore({ file: "control.json", name: "control" });
 
 function normalizeLockdown(raw) {
   const asIdList = (v) =>
@@ -27,41 +27,15 @@ function normalizeLockdown(raw) {
   };
 }
 
-let cache = null;
-
-function load() {
-  if (cache) return cache;
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    cache = fs.existsSync(DATA_FILE)
-      ? JSON.parse(fs.readFileSync(DATA_FILE, "utf8"))
-      : {};
-  } catch (err) {
-    log.warn("control store load failed:", err.message);
-    cache = {};
-  }
-  return cache;
-}
-
-function save() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(DATA_FILE, JSON.stringify(cache, null, 2));
-  } catch (err) {
-    log.warn("control store save failed:", err.message);
-  }
-}
-
 /** Load the lockdown config for a guild (normalized; fail-open on error). */
 function loadControlLockdown(guildId) {
-  const all = load();
-  return normalizeLockdown(all[guildId]);
+  return normalizeLockdown(store.load()[guildId]);
 }
 
 function saveControlLockdown(guildId, lockdown) {
   const normalized = normalizeLockdown(lockdown);
-  load()[guildId] = normalized;
-  save();
+  store.load()[guildId] = normalized;
+  store.save();
   return normalized;
 }
 

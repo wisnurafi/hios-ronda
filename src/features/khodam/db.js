@@ -1,10 +1,10 @@
 /**
  * Postgres (Neon) storage for the Cek Khodam game.
  *
- * Same pattern as src/features/ronda/db.js: auto-migrate on startup
- * (CREATE TABLE IF NOT EXISTS), tiny pool for the free tier, reconnect
- * loop while disabled. If DATABASE_URL is unset/unreachable the game
- * features degrade with a friendly message instead of crashing.
+ * Connection is owned by the shared pool in src/db.js (one pool for the
+ * whole bot). This module registers its schema and exposes the game's
+ * queries. If DATABASE_URL is unset/unreachable the game features degrade
+ * with a friendly message instead of crashing.
  *
  * Tables:
  * - khodam_collection(guild_id, user_id, khodam_id, discovered_at)
@@ -12,7 +12,7 @@
  * - khodam_daily(guild_id, user_id, ymd, rolls_used)
  */
 
-const { Pool } = require("pg");
+const db = require("../../db");
 const { log } = require("../../log");
 
 const SCHEMA = `
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS khodam_duel_stats (
 );
 CREATE TABLE IF NOT EXISTS khodam_daily (
   guild_id   TEXT NOT NULL,
-  user_id    TEXT NOT NULL,
+  user_id   TEXT NOT NULL,
   ymd        TEXT NOT NULL,
   rolls_used INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (guild_id, user_id, ymd)
@@ -43,67 +43,14 @@ CREATE INDEX IF NOT EXISTS khodam_duel_stats_guild_idx
   ON khodam_duel_stats (guild_id);
 `;
 
-let pool = null;
-let enabled = false;
-
-function isEnabled() {
-  return enabled;
-}
-
-async function initDb() {
-  const url = (process.env.DATABASE_URL || "").trim();
-  if (!url) {
-    log.warn("khodam db: DATABASE_URL not set — khodam game disabled (bot still runs)");
-    return;
-  }
-  const attempts = 3;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      pool = new Pool({
-        connectionString: url,
-        max: 3,
-        idleTimeoutMillis: 30_000,
-        connectionTimeoutMillis: 30_000,
-        ssl: { rejectUnauthorized: false },
-      });
-      pool.on("error", (err) => log("khodam db pool error:", err.message));
-      await pool.query("SELECT 1");
-      await pool.query(SCHEMA);
-      enabled = true;
-      log("khodam db: connected, schema ready");
-      return;
-    } catch (err) {
-      log.warn(`khodam db: connect attempt ${attempt}/${attempts} failed:`, err.message);
-      try {
-        await pool?.end().catch(() => {});
-      } catch {}
-      pool = null;
-      if (attempt < attempts) await new Promise((r) => setTimeout(r, 5000));
-    }
-  }
-  log.warn("khodam db: unavailable — khodam game disabled (bot still runs)");
-  enabled = false;
-}
-
-function startReconnectLoop() {
-  const timer = setInterval(async () => {
-    if (enabled) {
-      clearInterval(timer);
-      return;
-    }
-    if (!(process.env.DATABASE_URL || "").trim()) return;
-    log("khodam db: retrying connection...");
-    await initDb();
-  }, 5 * 60_000);
-  timer.unref?.();
-}
+db.registerSchema("khodam", SCHEMA);
 
 // ---- daily quota ----
 
 async function getDailyRolls(guildId, userId, ymd) {
-  if (!enabled) return 0;
+  if (!db.isEnabled()) return 0;
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.getPool().query(
       `SELECT rolls_used FROM khodam_daily WHERE guild_id = $1 AND user_id = $2 AND ymd = $3`,
       [guildId, userId, ymd]
     );
@@ -115,9 +62,9 @@ async function getDailyRolls(guildId, userId, ymd) {
 }
 
 async function incrementDailyRoll(guildId, userId, ymd) {
-  if (!enabled) return 0;
+  if (!db.isEnabled()) return 0;
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.getPool().query(
       `INSERT INTO khodam_daily (guild_id, user_id, ymd, rolls_used)
        VALUES ($1, $2, $3, 1)
        ON CONFLICT (guild_id, user_id, ymd)
@@ -135,9 +82,9 @@ async function incrementDailyRoll(guildId, userId, ymd) {
 // ---- collection ----
 
 async function getCollection(guildId, userId) {
-  if (!enabled) return [];
+  if (!db.isEnabled()) return [];
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.getPool().query(
       `SELECT khodam_id, discovered_at FROM khodam_collection
         WHERE guild_id = $1 AND user_id = $2 ORDER BY discovered_at ASC`,
       [guildId, userId]
@@ -151,9 +98,9 @@ async function getCollection(guildId, userId) {
 
 /** Returns true when inserted, false when the khodam was already owned. */
 async function addToCollection(guildId, userId, khodamId) {
-  if (!enabled) return false;
+  if (!db.isEnabled()) return false;
   try {
-    const res = await pool.query(
+    const res = await db.getPool().query(
       `INSERT INTO khodam_collection (guild_id, user_id, khodam_id)
        VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
       [guildId, userId, khodamId]
@@ -166,9 +113,9 @@ async function addToCollection(guildId, userId, khodamId) {
 }
 
 async function removeFromCollection(guildId, userId, khodamId) {
-  if (!enabled) return;
+  if (!db.isEnabled()) return;
   try {
-    await pool.query(
+    await db.getPool().query(
       `DELETE FROM khodam_collection WHERE guild_id = $1 AND user_id = $2 AND khodam_id = $3`,
       [guildId, userId, khodamId]
     );
@@ -184,10 +131,10 @@ async function removeFromCollection(guildId, userId, khodamId) {
 
 async function recordDuel(guildId, userId, khodamId, outcome) {
   // outcome: "win" | "draw" | "loss"
-  if (!enabled) return;
+  if (!db.isEnabled()) return;
   const col = outcome === "win" ? "wins" : outcome === "draw" ? "draws" : "losses";
   try {
-    await pool.query(
+    await db.getPool().query(
       `INSERT INTO khodam_duel_stats (guild_id, user_id, khodam_id, wins, draws, losses)
        VALUES ($1, $2, $3, 0, 0, 0)
        ON CONFLICT (guild_id, user_id, khodam_id)
@@ -204,9 +151,9 @@ async function recordDuel(guildId, userId, khodamId, outcome) {
  * Tiebreak: fewer losses first (1W-0L outranks 1W-1L), then more draws.
  */
 async function leaderboardByWins(guildId, limit = 5) {
-  if (!enabled) return [];
+  if (!db.isEnabled()) return [];
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.getPool().query(
       `SELECT user_id, SUM(wins) AS wins, SUM(draws) AS draws, SUM(losses) AS losses
          FROM khodam_duel_stats
         WHERE guild_id = $1
@@ -228,9 +175,9 @@ async function leaderboardByWins(guildId, limit = 5) {
  * minDuels keeps one-off lucky wins off the board.
  */
 async function leaderboardByWinRate(guildId, limit = 5, minDuels = 3) {
-  if (!enabled) return [];
+  if (!db.isEnabled()) return [];
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.getPool().query(
       `SELECT user_id, khodam_id, wins, draws, losses,
               (wins::float / NULLIF(wins + draws + losses, 0)) AS win_rate
          FROM khodam_duel_stats
@@ -247,9 +194,10 @@ async function leaderboardByWinRate(guildId, limit = 5, minDuels = 3) {
 }
 
 module.exports = {
-  isEnabled,
-  initDb,
-  startReconnectLoop,
+  // Shared pool (src/db.js) — same names as before, so call sites don't change.
+  initDb: db.initDb,
+  isEnabled: db.isEnabled,
+  startReconnectLoop: db.startReconnectLoop,
   getDailyRolls,
   incrementDailyRoll,
   getCollection,
