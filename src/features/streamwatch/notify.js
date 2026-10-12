@@ -1,16 +1,10 @@
-const { ChannelType } = require("discord.js");
 const { log } = require("../../log");
+const { resolveTextChannel } = require("../../channels");
 const { getWatchConfig, isNotifyEnabled } = require("./store");
 
-async function getNotifyChannel(guild, notifyChannelId) {
-  if (!notifyChannelId) return null;
-  try {
-    const ch = await guild.channels.fetch(notifyChannelId);
-    if (ch && ch.type === ChannelType.GuildText && ch.viewable) return ch;
-  } catch {
-    // channel deleted / no access — stay silent, don't crash
-  }
-  return null;
+/** Resolve the notify channel (null-safe via the shared helper). */
+function getNotifyChannel(guild, notifyChannelId) {
+  return resolveTextChannel(guild, notifyChannelId);
 }
 
 /** Per-guild dashboard setting wins, env NOTIFY_CHANNEL_ID is the fallback. */

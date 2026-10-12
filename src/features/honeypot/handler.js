@@ -1,5 +1,6 @@
 const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
 const { log } = require("../../log");
+const { resolveTextChannel } = require("../../channels");
 const { getConfig, updateConfig } = require("./store");
 const { refreshCounter } = require("./setup");
 const { getLogsWebhook } = require("./webhook");
@@ -50,13 +51,7 @@ async function deliverLog(guild, cfg, hook, options) {
 }
 
 async function getLogsChannel(guild, cfg) {
-  if (!cfg.logsChannelId) return null;
-  try {
-    const ch = await guild.channels.fetch(cfg.logsChannelId);
-    return ch?.isTextBased() ? ch : null;
-  } catch {
-    return null;
-  }
+  return resolveTextChannel(guild, cfg.logsChannelId);
 }
 
 function quotedContent(message) {

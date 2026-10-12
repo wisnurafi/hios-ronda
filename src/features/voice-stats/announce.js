@@ -9,6 +9,7 @@
 
 const { EmbedBuilder, ChannelType } = require("discord.js");
 const { log } = require("../../log");
+const { resolveTextChannel } = require("../../channels");
 const { isEnabled, topNightOwls, weekRows, pruneOldWeeks } = require("./db");
 const { getGuildConfig, updateFeatureConfig } = require("./store");
 const { weekStartWeeksAgo, weekLabel, formatDuration, wibParts } = require("./time");
@@ -44,15 +45,10 @@ function renderTemplate(template, vars) {
 
 /** Resolve the announce channel: dashboard pick -> NOTIFY_CHANNEL_ID env -> system/first text channel. */
 async function resolveChannel(guild, channelId) {
-  if (channelId) {
-    const c = guild.channels.cache.get(channelId);
-    if (c?.isTextBased()) return c;
-  }
-  const envId = (process.env.NOTIFY_CHANNEL_ID || "").trim();
-  if (envId) {
-    const c = guild.channels.cache.get(envId);
-    if (c?.isTextBased()) return c;
-  }
+  const picked = await resolveTextChannel(guild, channelId);
+  if (picked) return picked;
+  const envPicked = await resolveTextChannel(guild, (process.env.NOTIFY_CHANNEL_ID || "").trim());
+  if (envPicked) return envPicked;
   if (guild.systemChannel?.isTextBased()) return guild.systemChannel;
   return (
     guild.channels.cache.find(
