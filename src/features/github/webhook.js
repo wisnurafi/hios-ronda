@@ -21,14 +21,30 @@ function assetHash() {
   }
 }
 
-/** Get (or create) the webhook in the guild's configured target channel. */
+/**
+ * Get (or create) the webhook in the guild's configured target channel.
+ *
+ * The client is cached in memory: the poller ticks every 2 minutes and
+ * re-fetching the same webhook over REST each tick is pure waste. The
+ * cache is invalidated when a send fails (webhook deleted externally) or
+ * the target channel changes — the next tick then re-fetches, recreating
+ * the webhook through the existing self-healing path when it's gone.
+ */
+const webhookCache = new Map(); // guildId -> { hook, channelId }
+
 async function getGithubWebhook(guild, cfg) {
   if (!cfg.channelId) return null;
+
+  const cached = webhookCache.get(guild.id);
+  if (cached && cached.channelId === cfg.channelId) return cached.hook;
+
   const client = guild.client;
 
   if (cfg.webhookId && cfg.webhookToken) {
     try {
-      return await client.fetchWebhook(cfg.webhookId, cfg.webhookToken);
+      const hook = await client.fetchWebhook(cfg.webhookId, cfg.webhookToken);
+      webhookCache.set(guild.id, { hook, channelId: cfg.channelId });
+      return hook;
     } catch {
       log.warn("github: stored webhook gone, recreating");
     }
@@ -53,6 +69,7 @@ async function getGithubWebhook(guild, cfg) {
       webhookToken: hook.token,
       webhookAvatarHash: assetHash(),
     });
+    webhookCache.set(guild.id, { hook, channelId: cfg.channelId });
     log(`github: created webhook in #${channel.name}`);
     return hook;
   } catch (err) {
@@ -63,7 +80,13 @@ async function getGithubWebhook(guild, cfg) {
 
 /** Drop the stored webhook (e.g. target channel changed). */
 function forgetGithubWebhook(guildId) {
+  webhookCache.delete(guildId);
   updateConfig(guildId, { webhookId: null, webhookToken: null, webhookAvatarHash: null });
 }
 
-module.exports = { getGithubWebhook, forgetGithubWebhook, WEBHOOK_NAME };
+/** Drop the cached client (e.g. sends started failing — webhook deleted externally). */
+function invalidateGithubWebhook(guildId) {
+  webhookCache.delete(guildId);
+}
+
+module.exports = { getGithubWebhook, forgetGithubWebhook, invalidateGithubWebhook, WEBHOOK_NAME };

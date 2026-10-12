@@ -8,6 +8,15 @@ const { emojiMention } = require("./emojis");
 // userId -> timestamp of last punishment (anti double-punish on spam waves)
 const recentPunishments = new Map();
 
+// Entries expire after 60s by definition; sweep them periodically so the
+// map can't grow without bound over a long uptime.
+setInterval(() => {
+  const cutoff = Date.now() - 60_000;
+  for (const [id, ts] of recentPunishments) {
+    if (ts < cutoff) recentPunishments.delete(id);
+  }
+}, 5 * 60_000).unref?.();
+
 const ACTION_VERBS = {
   ban: { present: "ban", past: "banned" },
   kick: { present: "kick", past: "kicked" },

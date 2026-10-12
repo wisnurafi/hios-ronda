@@ -17,7 +17,7 @@ const { log } = require("../../log");
 const { getConfig, getPollState, setPollState, configuredRepos, githubToken } = require("./store");
 const { getRepo, getBranchHead, compareCommits, listPulls, listReleases } = require("./github");
 const { buildEventPost } = require("./embeds");
-const { getGithubWebhook } = require("./webhook");
+const { getGithubWebhook, invalidateGithubWebhook } = require("./webhook");
 
 const OVERLAP_MS = 5 * 60_000;
 const MAX_SEEN = 200;
@@ -39,12 +39,15 @@ function prActionsSince(pr, since) {
   return out;
 }
 
-async function sendSafe(hook, embed, what) {
+async function sendSafe(guild, hook, embed, what) {
   try {
     await hook.send({ embeds: [embed] });
     return true;
   } catch (err) {
     log.warn(`github: send failed (${what}): ${err.message}`);
+    // The cached webhook client may be stale (deleted externally) — drop
+    // it so the next tick re-fetches and self-heals.
+    invalidateGithubWebhook(guild.id);
     return false;
   }
 }
@@ -93,7 +96,7 @@ async function pollRepo(guild, hook, repo, token) {
         },
       };
       const embed = buildEventPost(repo, event, cfg.emojis);
-      if (embed && (await sendSafe(hook, embed, `${repo} push`))) {
+      if (embed && (await sendSafe(guild, hook, embed, `${repo} push`))) {
         headSha = latest.sha;
         log.debug(`github: ${repo}: ${commits.length} new commit(s)`);
       }
@@ -140,7 +143,7 @@ async function pollRepo(guild, hook, repo, token) {
         },
       };
       const embed = buildEventPost(repo, event, cfg.emojis);
-      if (embed && (await sendSafe(hook, embed, `${repo} PR #${pr.number} ${action}`))) {
+      if (embed && (await sendSafe(guild, hook, embed, `${repo} PR #${pr.number} ${action}`))) {
         seen.add(key);
       }
     }
@@ -167,7 +170,7 @@ async function pollRepo(guild, hook, repo, token) {
         },
       };
       const embed = buildEventPost(repo, event, cfg.emojis);
-      if (embed && (await sendSafe(hook, embed, `${repo} release ${r.tag_name}`))) {
+      if (embed && (await sendSafe(guild, hook, embed, `${repo} release ${r.tag_name}`))) {
         seen.add(`rel:${r.id}`);
       }
     }

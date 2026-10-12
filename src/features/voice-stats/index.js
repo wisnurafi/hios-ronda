@@ -14,7 +14,7 @@ const cron = require("node-cron");
 const { log } = require("../../log");
 const { enforceControlLockdown } = require("../control");
 const { initDb, startReconnectLoop } = require("./db");
-const { handleVoiceStateUpdate, seedFromGuilds } = require("./tracker");
+const { handleVoiceStateUpdate, seedFromGuilds, clearGuildSessions } = require("./tracker");
 const { runDueAnnouncements } = require("./announce");
 const { handleBegadangCommand, handleRapotCommand } = require("./commands");
 
@@ -56,6 +56,15 @@ function registerVoiceStats(client, config) {
       await handleVoiceStateUpdate(oldState, newState);
     } catch (err) {
       log.warn("voice-stats voiceStateUpdate error:", err.message);
+    }
+  });
+
+  // Drop tracked sessions when the bot leaves/is removed from a guild.
+  client.on(Events.GuildDelete, (guild) => {
+    try {
+      clearGuildSessions(guild.id);
+    } catch (err) {
+      log.warn("voice-stats guild cleanup error:", err.message);
     }
   });
 

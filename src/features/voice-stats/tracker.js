@@ -57,6 +57,14 @@ function startSession(guildId, userId, channelId) {
   sessions.set(key(guildId, userId), { channelId, joinedAt: Date.now() });
 }
 
+/** Drop all tracked sessions for a guild (bot was removed). */
+function clearGuildSessions(guildId) {
+  const prefix = `${guildId}:`;
+  for (const k of sessions.keys()) {
+    if (k.startsWith(prefix)) sessions.delete(k);
+  }
+}
+
 /**
  * Call on every VoiceStateUpdate. Safe to run alongside other features'
  * listeners — this one never replies or mutates Discord state.
@@ -122,4 +130,4 @@ async function seedFromGuilds(client) {
   if (sessions.size > 0) log(`ronda tracker: seeded ${sessions.size} active session(s)`);
 }
 
-module.exports = { handleVoiceStateUpdate, seedFromGuilds };
+module.exports = { handleVoiceStateUpdate, seedFromGuilds, clearGuildSessions };

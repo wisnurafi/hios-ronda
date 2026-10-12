@@ -19,7 +19,7 @@ const {
   ComponentType,
   MessageFlags,
 } = require("discord.js");
-const { openDashboard: openDashboardShell } = require("../../dashboard");
+const { openDashboard: openDashboardShell, backRow } = require("../../dashboard");
 const { getConfig, updateConfig } = require("./store");
 const { ensureKhodamEmojis } = require("./emojis");
 const { postOrRefreshPanel, createKhodamChannel } = require("./panel");
@@ -77,19 +77,6 @@ function mainComponents(guildId, cfg) {
   return [buttons, menu];
 }
 
-function disabledComponents(guildId, cfg) {
-  return mainComponents(guildId, cfg).map((row) => {
-    row.components.forEach((c) => c.setDisabled(true));
-    return row;
-  });
-}
-
-function backRow(guildId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(id("back", guildId)).setLabel("← Back").setStyle(ButtonStyle.Secondary)
-  );
-}
-
 async function openDashboard(interaction) {
   return openDashboardShell(interaction, {
     prefix: "kh",
@@ -98,7 +85,6 @@ async function openDashboard(interaction) {
       "You need the **Administrator** permission (or be a bot owner) to manage the khodam game.",
     buildEmbed,
     buildComponents: mainComponents,
-    buildDisabledComponents: disabledComponents,
     getConfig,
     onComponent: (i, guild, ctx) => handleComponent(i, guild, ctx),
   });
@@ -150,7 +136,7 @@ async function handleComponent(i, guild, ctx) {
           .setPlaceholder("Select the khodam game channel")
           .addChannelTypes(ChannelType.GuildText)
       );
-      await i.update({ components: [picker, backRow(guildId)] });
+      await i.update({ components: [picker, backRow(id("back", guildId))] });
       return;
     }
     if (value === "create_channel") {

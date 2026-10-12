@@ -15,7 +15,7 @@ const { enforceControlLockdown } = require("../control");
 const { ensureKhodamEmojis } = require("./emojis");
 const { postOrRefreshPanel } = require("./panel");
 const { openDashboard } = require("./dashboard");
-const { handleKhodamButton, handleKhodamSelect } = require("./handler");
+const { handleKhodamButton, handleKhodamSelect, cancelScheduledBump } = require("./handler");
 const { initDb, startReconnectLoop } = require("./db");
 
 function registerKhodam(client) {
@@ -57,6 +57,15 @@ function registerKhodam(client) {
       }
     } catch (err) {
       log.warn("khodam interaction error:", err.message);
+    }
+  });
+
+  // Cancel a queued panel bump when the bot leaves/is removed from a guild.
+  client.on(Events.GuildDelete, (guild) => {
+    try {
+      cancelScheduledBump(guild.id);
+    } catch (err) {
+      log.warn("khodam guild cleanup error:", err.message);
     }
   });
 }

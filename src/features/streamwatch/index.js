@@ -1,7 +1,7 @@
 const { Events } = require("discord.js");
 const { log } = require("../../log");
 const { enforceControlLockdown } = require("../control");
-const { forEachState } = require("./state");
+const { forEachState, deleteState } = require("./state");
 const { reconcile } = require("./reconcile");
 const { handleVoiceStateUpdate } = require("./handler");
 const { refreshWatchStatus } = require("./watchstatus");
@@ -29,6 +29,16 @@ function registerStreamwatch(client, config) {
       await handleVoiceStateUpdate(oldState, newState, client, config);
     } catch (err) {
       log.warn("voiceStateUpdate handler error:", err.message);
+    }
+  });
+
+  // Drop per-guild queue state when the bot leaves/is removed from a guild,
+  // so the state map can't grow without bound over a long uptime.
+  client.on(Events.GuildDelete, (guild) => {
+    try {
+      deleteState(guild.id);
+    } catch (err) {
+      log.warn("streamwatch guild cleanup error:", err.message);
     }
   });
 

@@ -83,13 +83,6 @@ function mainComponents(guildId, cfg) {
   return [toggleRow, menu];
 }
 
-function disabledComponents(guildId, cfg) {
-  return mainComponents(guildId, cfg).map((row) => {
-    row.components.forEach((c) => c.setDisabled(true));
-    return row;
-  });
-}
-
 async function openGithubDashboard(interaction) {
   return openDashboardShell(interaction, {
     prefix: "github",
@@ -98,7 +91,6 @@ async function openGithubDashboard(interaction) {
       "You need the **Administrator** permission (or be a bot owner) to manage these settings.",
     buildEmbed,
     buildComponents: mainComponents,
-    buildDisabledComponents: disabledComponents,
     getConfig,
     onComponent: (i, guild, ctx) => handleComponent(i, guild, ctx),
   });

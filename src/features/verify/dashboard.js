@@ -16,15 +16,13 @@ const {
   StringSelectMenuOptionBuilder,
   ChannelSelectMenuBuilder,
   RoleSelectMenuBuilder,
-  ModalBuilder,
-  TextInputBuilder,
   TextInputStyle,
   ChannelType,
   ComponentType,
   MessageFlags,
 } = require("discord.js");
 const { log } = require("../../log");
-const { openDashboard: openDashboardShell } = require("../../dashboard");
+const { openDashboard: openDashboardShell, showModal, backRow } = require("../../dashboard");
 const { getConfig, updateConfig } = require("./store");
 const { setupVerify, createVerifyChannel } = require("./setup");
 
@@ -105,42 +103,6 @@ function mainComponents(guildId, cfg) {
   return [buttons, menu];
 }
 
-function disabledComponents(guildId, cfg) {
-  return mainComponents(guildId, cfg).map((row) => {
-    row.components.forEach((c) => c.setDisabled(true));
-    return row;
-  });
-}
-
-function backRow(guildId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(id("back", guildId)).setLabel("← Back").setStyle(ButtonStyle.Secondary)
-  );
-}
-
-async function showModal(interaction, modalId, title, inputs) {
-  const modal = new ModalBuilder().setCustomId(modalId).setTitle(title);
-  for (const inp of inputs) {
-    const textInput = new TextInputBuilder()
-      .setCustomId(inp.id)
-      .setLabel(inp.label)
-      .setStyle(inp.style || TextInputStyle.Short)
-      .setRequired(inp.required ?? true)
-      .setValue(inp.value || "")
-      .setMaxLength(inp.maxLength || 500);
-    if (inp.placeholder) textInput.setPlaceholder(inp.placeholder);
-    modal.addComponents(new ActionRowBuilder().addComponents(textInput));
-  }
-  await interaction.showModal(modal);
-  const submitted = await interaction
-    .awaitModalSubmit({
-      filter: (m) => m.customId === modalId && m.user.id === interaction.user.id,
-      time: 120_000,
-    })
-    .catch(() => null);
-  return submitted;
-}
-
 /** Open the interactive verify dashboard (ephemeral). */
 async function openDashboard(interaction) {
   return openDashboardShell(interaction, {
@@ -150,7 +112,6 @@ async function openDashboard(interaction) {
       "You need the **Administrator** permission (or be a bot owner) to manage verification.",
     buildEmbed,
     buildComponents: mainComponents,
-    buildDisabledComponents: disabledComponents,
     getConfig,
     onComponent: (i, guild, ctx) => handleComponent(i, guild, ctx),
   });
@@ -210,7 +171,7 @@ async function handleComponent(i, guild, ctx) {
           .setPlaceholder("Select the verify channel")
           .addChannelTypes(ChannelType.GuildText)
       );
-      await i.update({ components: [picker, backRow(guildId)] });
+      await i.update({ components: [picker, backRow(id("back", guildId))] });
       return;
     }
     if (value === "create_channel") {
@@ -239,7 +200,7 @@ async function handleComponent(i, guild, ctx) {
           .setMinValues(1)
           .setMaxValues(1)
       );
-      await i.update({ components: [picker, backRow(guildId)] });
+      await i.update({ components: [picker, backRow(id("back", guildId))] });
       return;
     }
     if (value === "button_label") {

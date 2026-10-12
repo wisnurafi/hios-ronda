@@ -49,10 +49,19 @@ function isQueued(guildId, userId) {
   return !!s && s.queue.some((e) => e.userId === userId);
 }
 
+/** Drop all state for a guild (bot was removed). Clears pending grace timers too. */
+function deleteState(guildId) {
+  const s = guilds.get(guildId);
+  if (!s) return;
+  for (const t of s.leaveTimers.values()) clearTimeout(t);
+  guilds.delete(guildId);
+}
+
 module.exports = {
   getState,
   forEachState,
   clearLeaveTimer,
   removeFromQueue,
   isQueued,
+  deleteState,
 };

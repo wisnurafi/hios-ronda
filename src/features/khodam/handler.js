@@ -33,12 +33,26 @@ const {
   checkCooldown,
   MAX_COLLECTION,
   ROLLS_PER_DAY,
+  ROLL_COOLDOWN_MS,
 } = require("./util");
 const db = require("./db");
 
 const cooldowns = new Map(); // `${guildId}:${userId}` -> timestamp
 const pendingReplaces = new Map(); // `${guildId}:${userId}` -> { khodamId, expiresAt }
 const REPLACE_TTL_MS = 5 * 60_000;
+
+// Per-user entries would otherwise accumulate forever for users who never
+// return. Sweep hourly; deleting is behavior-neutral (checkCooldown treats
+// a missing key as "clear", expired pickers are rejected on access anyway).
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, ts] of cooldowns) {
+    if (now - ts > ROLL_COOLDOWN_MS) cooldowns.delete(k);
+  }
+  for (const [k, p] of pendingReplaces) {
+    if (p.expiresAt < now) pendingReplaces.delete(k);
+  }
+}, 60 * 60_000).unref?.();
 
 function displayNameOf(interaction) {
   return (
@@ -100,6 +114,15 @@ function bumpPanel(interaction) {
     scheduledBumps.set(guild.id, t);
   } catch (err) {
     log.warn("khodam bump failed:", err.message);
+  }
+}
+
+/** Cancel a queued panel bump (e.g. the bot left/was removed from the guild). */
+function cancelScheduledBump(guildId) {
+  const t = scheduledBumps.get(guildId);
+  if (t) {
+    clearTimeout(t);
+    scheduledBumps.delete(guildId);
   }
 }
 
@@ -522,4 +545,4 @@ async function handleKhodamSelect(interaction) {
   }
 }
 
-module.exports = { handleKhodamButton, handleKhodamSelect };
+module.exports = { handleKhodamButton, handleKhodamSelect, cancelScheduledBump };

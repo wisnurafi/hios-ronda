@@ -18,14 +18,12 @@ const {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   ChannelSelectMenuBuilder,
-  ModalBuilder,
-  TextInputBuilder,
   TextInputStyle,
   ChannelType,
   ComponentType,
   MessageFlags,
 } = require("discord.js");
-const { openDashboard: openDashboardShell } = require("../../dashboard");
+const { openDashboard: openDashboardShell, showModal, backRow, disableAll } = require("../../dashboard");
 const { isEnabled: isDbEnabled, topNightOwls, weekRows } = require("./db");
 const { getGuildConfig, updateFeatureConfig, DEFAULT_BEGADANG_MESSAGE, DEFAULT_RAPOT_MESSAGE } = require("./store");
 const { renderTemplate, buildBegadangEmbed, buildRapotEmbed, commonVars } = require("./announce");
@@ -120,22 +118,6 @@ function mainComponents(feature, guildId, cfg) {
   return [toggleRow, menu];
 }
 
-function disabledComponents(feature, guildId, cfg) {
-  return mainComponents(feature, guildId, cfg).map((row) => {
-    row.components.forEach((c) => c.setDisabled(true));
-    return row;
-  });
-}
-
-function backRow(feature, guildId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(id(feature, "back", guildId))
-      .setLabel("← Back")
-      .setStyle(ButtonStyle.Secondary)
-  );
-}
-
 /** Schedule sub-view: day / hour / minute pickers (all WIB) + back. */
 function scheduleComponents(feature, guildId, schedule) {
   const s = { day: 1, hour: 9, minute: 0, ...schedule };
@@ -178,7 +160,7 @@ function scheduleComponents(feature, guildId, schedule) {
         )
       )
   );
-  return [dayRow, hourRow, minRow, backRow(feature, guildId)];
+  return [dayRow, hourRow, minRow, backRow(id(feature, "back", guildId))];
 }
 
 async function openDashboard(interaction, feature) {
@@ -189,7 +171,7 @@ async function openDashboard(interaction, feature) {
       "You need the **Administrator** permission (or be a bot owner) to manage these settings.",
     buildEmbed: (guild, cfg) => buildEmbed(guild, feature, cfg),
     buildComponents: (guildId, cfg) => mainComponents(feature, guildId, cfg),
-    buildDisabledComponents: (guildId, cfg) => disabledComponents(feature, guildId, cfg),
+    buildDisabledComponents: (guildId, cfg) => disableAll(mainComponents(feature, guildId, cfg)),
     getConfig: (guildId) => getGuildConfig(guildId)[feature],
     onComponent: (i, guild, ctx) => handleComponent(i, guild, ctx, feature),
   });
@@ -233,25 +215,16 @@ async function sendPreview(i, guild, feature) {
 }
 
 async function showMessageModal(i, feature, guildId, cfg) {
-  const modalId = id(feature, "modal", "message", guildId);
-  const modal = new ModalBuilder().setCustomId(modalId).setTitle("Announcement Message");
-  const input = new TextInputBuilder()
-    .setCustomId("message")
-    .setLabel("Message template")
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true)
-    .setValue(cfg.message)
-    .setMaxLength(1500)
-    .setPlaceholder("Use {placeholders} — see the dashboard for the list");
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
-  await i.showModal(modal);
-  const submitted = await i
-    .awaitModalSubmit({
-      filter: (m) => m.customId === modalId && m.user.id === i.user.id,
-      time: 120_000,
-    })
-    .catch(() => null);
-  return submitted;
+  return showModal(i, id(feature, "modal", "message", guildId), "Announcement Message", [
+    {
+      id: "message",
+      label: "Message template",
+      style: TextInputStyle.Paragraph,
+      value: cfg.message,
+      maxLength: 1500,
+      placeholder: "Use {placeholders} — see the dashboard for the list",
+    },
+  ]);
 }
 
 async function handleComponent(i, guild, ctx, feature) {

@@ -28,11 +28,65 @@
  *   }
  */
 
-const { MessageFlags, PermissionFlagsBits } = require("discord.js");
+const {
+  MessageFlags,
+  PermissionFlagsBits,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require("discord.js");
 const { log } = require("./log");
 const { isBotOwner } = require("./owner");
 
 const SESSION_MS = 600_000; // 10 minutes
+
+/**
+ * Shared "← Back" row for dashboard sub-views. Takes the full customId
+ * (each dashboard builds it with its own prefix, e.g. backRow(id("back", guildId))).
+ */
+function backRow(customId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(customId).setLabel("← Back").setStyle(ButtonStyle.Secondary)
+  );
+}
+
+/** Disable every component in the given rows (dashboard auto-close state). */
+function disableAll(rows) {
+  return rows.map((row) => {
+    row.components.forEach((c) => c.setDisabled(true));
+    return row;
+  });
+}
+
+/**
+ * Show a modal and wait for its submission (2-minute window).
+ * Returns the ModalSubmitInteraction, or null when the user dismisses it
+ * / the window expires. Callers must null-check before using it.
+ */
+async function showModal(interaction, modalId, title, inputs) {
+  const modal = new ModalBuilder().setCustomId(modalId).setTitle(title);
+  for (const inp of inputs) {
+    const textInput = new TextInputBuilder()
+      .setCustomId(inp.id)
+      .setLabel(inp.label)
+      .setStyle(inp.style || TextInputStyle.Short)
+      .setRequired(inp.required ?? true)
+      .setValue(inp.value || "")
+      .setMaxLength(inp.maxLength || 500);
+    if (inp.placeholder) textInput.setPlaceholder(inp.placeholder);
+    modal.addComponents(new ActionRowBuilder().addComponents(textInput));
+  }
+  await interaction.showModal(modal);
+  return interaction
+    .awaitModalSubmit({
+      filter: (m) => m.customId === modalId && m.user.id === interaction.user.id,
+      time: 120_000,
+    })
+    .catch(() => null);
+}
 
 async function openDashboard(interaction, opts) {
   const {
@@ -41,7 +95,9 @@ async function openDashboard(interaction, opts) {
     gateMessage,
     buildEmbed,
     buildComponents,
-    buildDisabledComponents,
+    // Optional: defaults to disabling every component of buildComponents,
+    // which is what every dashboard did anyway.
+    buildDisabledComponents = (guildId, cfg) => disableAll(buildComponents(guildId, cfg)),
     getConfig,
     onComponent,
     sessionMs = SESSION_MS,
@@ -110,4 +166,4 @@ async function openDashboard(interaction, opts) {
   });
 }
 
-module.exports = { openDashboard, SESSION_MS };
+module.exports = { openDashboard, SESSION_MS, showModal, backRow, disableAll };
