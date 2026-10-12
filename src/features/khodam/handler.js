@@ -100,6 +100,7 @@ function bumpPanel(interaction) {
     const guild = interaction.guild;
     if (!guild) return;
     if (scheduledBumps.has(guild.id)) return; // one already queued for this burst
+    log.debug(`khodam panel bump scheduled (trailing ${BUMP_DEBOUNCE_MS / 1000}s)`);
     const t = setTimeout(() => {
       scheduledBumps.delete(guild.id);
       try {
@@ -152,6 +153,7 @@ async function handleRoll(interaction) {
 
   const remaining_cd = checkCooldown(cooldowns, keyOf(interaction));
   if (remaining_cd > 0) {
+    log.debug("khodam roll rejected (cooldown)", { remainingMs: Math.ceil(remaining_cd) });
     await interaction.reply({
       content: `Sabar bro, tunggu ${Math.ceil(remaining_cd / 1000)} detik dulu.`,
       flags: MessageFlags.Ephemeral,
@@ -159,9 +161,11 @@ async function handleRoll(interaction) {
     return;
   }
 
+  const t0 = Date.now();
   const ymd = wibToday();
   const used = await db.getDailyRolls(interaction.guildId, interaction.user.id, ymd);
   if (!canRoll(used)) {
+    log.debug("khodam roll rejected (quota habis)");
     await interaction.reply({
       content: `Kuota cek hari ini habis (${ROLLS_PER_DAY}x). Balik lagi besok jam 00:00 WIB!`,
       flags: MessageFlags.Ephemeral,
@@ -173,6 +177,7 @@ async function handleRoll(interaction) {
   const newUsed = await db.incrementDailyRoll(interaction.guildId, interaction.user.id, ymd);
   const remaining = rollsRemaining(newUsed);
   const display = displayNameOf(interaction);
+  const tier = tierOf(khodam);
 
   const collection = await db.getCollection(interaction.guildId, interaction.user.id);
   const owned = collection.some((c) => c.khodam_id === khodam.id);
@@ -182,6 +187,13 @@ async function handleRoll(interaction) {
       embeds: [revealEmbed(display, khodam, "Khodam ini **sudah ada** di koleksimu.", remaining)],
     });
     bumpPanel(interaction);
+    log.info("khodam roll", {
+      khodam: khodam.name,
+      tier: tier.label,
+      dup: true,
+      remaining,
+      ms: Date.now() - t0,
+    });
     return;
   }
 
@@ -193,12 +205,18 @@ async function handleRoll(interaction) {
       ],
     });
     bumpPanel(interaction);
+    log.info("khodam roll", {
+      khodam: khodam.name,
+      tier: tier.label,
+      dup: false,
+      remaining,
+      ms: Date.now() - t0,
+    });
     return;
   }
 
   // Collection full — ephemeral picker: replace one, or discard the new one.
   pendingReplaces.set(keyOf(interaction), { khodamId: khodam.id, expiresAt: Date.now() + REPLACE_TTL_MS });
-  const tier = tierOf(khodam);
   const options = collection
     .map((c) => getKhodam(c.khodam_id))
     .filter(Boolean)
@@ -309,6 +327,7 @@ function formatBattleLog(result, nameA, nameB) {
 }
 
 async function handleDuelPick(interaction) {
+  const t0 = Date.now();
   const targetId = interaction.values[0];
   const attackerId = interaction.user.id;
 
@@ -393,6 +412,13 @@ async function handleDuelPick(interaction) {
   await interaction.deferUpdate();
   await interaction.channel.send({ embeds: [embed] }).catch(() => {});
   bumpPanel(interaction);
+  log.info("khodam duel", {
+    attacker: khodamA.name,
+    defender: khodamB.name,
+    winner: result.winner === "a" ? khodamA.name : result.winner === "b" ? khodamB.name : "draw",
+    rounds: result.rounds,
+    ms: Date.now() - t0,
+  });
   await interaction
     .editReply({ content: "⚔️ Duel selesai! Hasilnya udah dipost di channel.", components: [] })
     .catch(() => {});

@@ -145,23 +145,45 @@ async function createKhodamChannel(guild) {
  * Delete the current panel message (best effort) and post a fresh one at
  * the bottom of the channel, so the panel is always the latest message
  * even as public game results pile up above it.
+ *
+ * Fetches the channel only once and goes straight to send after the
+ * delete — no second channel fetch, no pointless message lookup.
  */
 async function repostPanel(guild, emojis) {
+  const t0 = Date.now();
   const cfg = getConfig(guild.id);
-  if (cfg.channelId && cfg.messageId) {
-    try {
-      const channel = await guild.channels.fetch(cfg.channelId).catch(() => null);
-      const msg = channel?.isTextBased()
-        ? await channel.messages.fetch(cfg.messageId).catch(() => null)
-        : null;
-      // Only delete our own panel — never touch anything else.
-      if (msg && msg.author.id === guild.members.me.id) {
-        await msg.delete().catch(() => {});
-      }
-    } catch {}
-    updateConfig(guild.id, { messageId: null });
+  if (!cfg.channelId) throw new Error("Channel belum diatur — set dulu di dashboard.");
+  const channel = await guild.channels.fetch(cfg.channelId).catch(() => null);
+  if (!channel?.isTextBased()) throw new Error("Channel game tidak ketemu.");
+
+  const me = guild.members.me;
+  const canSend =
+    channel.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages) &&
+    channel.permissionsFor(me)?.has(PermissionFlagsBits.EmbedLinks) &&
+    channel.permissionsFor(me)?.has(PermissionFlagsBits.AttachFiles);
+  if (!canSend) throw new Error("Bot nggak punya izin kirim pesan/embed/file di channel itu.");
+
+  let deleted = false;
+  if (cfg.messageId) {
+    const msg = await channel.messages.fetch(cfg.messageId).catch(() => null);
+    // Only delete our own panel — never touch anything else.
+    if (msg && msg.author.id === guild.members.me.id) {
+      await msg.delete().catch(() => {});
+      deleted = true;
+    }
   }
-  await postOrRefreshPanel(guild, emojis);
+  const tDelete = Date.now();
+
+  const msg = await channel.send(buildPanelPayload(emojis));
+  updateConfig(guild.id, { messageId: msg.id });
+  const tSend = Date.now();
+  log.info("khodam panel bump", {
+    deleted,
+    deleteMs: tDelete - t0,
+    sendMs: tSend - tDelete,
+    ms: tSend - t0,
+  });
+  return msg;
 }
 
 // Per-guild promise chain: concurrent game results must not each post
@@ -181,7 +203,10 @@ function bumpPanelToBottom(guild, emojis) {
   const prev = bumpQueues.get(guild.id) || Promise.resolve();
   const next = prev
     .catch(() => {})
-    .then(() => repostPanel(guild, emo))
+    .then(() => {
+      log.debug("khodam panel bump start");
+      return repostPanel(guild, emo);
+    })
     .catch((err) => log.warn("khodam panel bump failed:", err.message));
   bumpQueues.set(guild.id, next);
   next.finally(() => {

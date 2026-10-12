@@ -10,7 +10,7 @@
 
 const { Events } = require("discord.js");
 const cron = require("node-cron");
-const { log } = require("../../log");
+const { log, runWithTraceContext, createInteractionTraceContext } = require("../../log");
 const { enforceControlLockdown } = require("../control");
 const { pollTick, isConfigured } = require("./poller");
 const { handleGithubCommand } = require("./commands");
@@ -45,15 +45,16 @@ function registerGithub(client) {
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (!interaction.isChatInputCommand()) return;
-      if (await enforceControlLockdown(interaction)) return;
-      if (interaction.commandName === "github") {
+    if (!(interaction.isChatInputCommand() && interaction.commandName === "github")) return;
+    await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+      try {
+        if (await enforceControlLockdown(interaction)) return;
+        log.info("github dashboard opened");
         await handleGithubCommand(interaction);
+      } catch (err) {
+        log.warn("github interaction error:", err.message);
       }
-    } catch (err) {
-      log.warn("github interaction error:", err.message);
-    }
+    });
   });
 }
 

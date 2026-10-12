@@ -24,13 +24,25 @@ function renderMessage(template, member, voiceChannel) {
 }
 
 async function notifyLive(guild, member, voiceChannel, config) {
-  if (!isNotifyEnabled(guild.id)) return; // silenced via /watch dashboard
+  if (!isNotifyEnabled(guild.id)) {
+    log.debug(`streamwatch notify silenced in ${guild.name} (notify disabled)`);
+    return; // silenced via /watch dashboard
+  }
   const ch = await getNotifyChannel(guild, resolveNotifyChannelId(guild, config));
-  if (!ch) return;
+  if (!ch) {
+    log.warn(`streamwatch: no notify channel in ${guild.name}, skipped live notify for ${member.displayName}`);
+    return;
+  }
+  const t0 = Date.now();
   try {
     await ch.send({
       content: renderMessage(getWatchConfig(guild.id).notifyMessage, member, voiceChannel),
       allowedMentions: { parse: ["everyone", "users"] },
+    });
+    log.info("streamwatch live notify sent", {
+      user: member.displayName,
+      channel: voiceChannel.name,
+      ms: Date.now() - t0,
     });
   } catch (err) {
     log.warn(`notify failed in ${guild.id}:`, err.message);
@@ -41,8 +53,10 @@ async function notifyEnded(guild, member, config) {
   if (!isNotifyEnabled(guild.id)) return; // silenced via /watch dashboard
   const ch = await getNotifyChannel(guild, resolveNotifyChannelId(guild, config));
   if (!ch) return;
+  const t0 = Date.now();
   try {
     await ch.send({ content: `⚫ **${member.displayName}** finished streaming.` });
+    log.info("streamwatch ended notify sent", { user: member.displayName, ms: Date.now() - t0 });
   } catch (err) {
     log.warn(`notify failed in ${guild.id}:`, err.message);
   }

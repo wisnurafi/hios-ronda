@@ -3,21 +3,21 @@
  */
 
 const { Events } = require("discord.js");
-const { log } = require("../../log");
+const { log, runWithTraceContext, createInteractionTraceContext } = require("../../log");
 const { enforceControlLockdown } = require("../control");
 const { handlePingCommand } = require("./commands");
 
 function registerPing(client) {
   client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (!interaction.isChatInputCommand()) return;
-      if (interaction.commandName === "ping") {
+    if (!(interaction.isChatInputCommand() && interaction.commandName === "ping")) return;
+    await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+      try {
         if (await enforceControlLockdown(interaction)) return;
         await handlePingCommand(interaction);
+      } catch (err) {
+        log.warn("ping interaction error:", err.message);
       }
-    } catch (err) {
-      log.warn("ping interaction error:", err.message);
-    }
+    });
   });
 }
 

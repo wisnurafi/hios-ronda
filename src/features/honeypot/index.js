@@ -1,5 +1,10 @@
 const { Events } = require("discord.js");
-const { log } = require("../../log");
+const {
+  log,
+  runWithTraceContext,
+  createInteractionTraceContext,
+  createEventTraceContext,
+} = require("../../log");
 const { enforceControlLockdown } = require("../control");
 const { getConfig } = require("./store");
 const { openDashboard } = require("./dashboard");
@@ -39,19 +44,37 @@ function registerHoneypot(client) {
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (interaction.isChatInputCommand() && interaction.commandName === "honeypot") {
-        if (await enforceControlLockdown(interaction)) return;
-        await openDashboard(interaction);
-      } else if (interaction.isButton() && interaction.customId === "honeypot_info") {
-        await handleInfoButton(interaction);
+    const isDashboardCmd =
+      interaction.isChatInputCommand() && interaction.commandName === "honeypot";
+    const isInfoButton = interaction.isButton() && interaction.customId === "honeypot_info";
+    if (!isDashboardCmd && !isInfoButton) return;
+    await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+      try {
+        if (isDashboardCmd) {
+          if (await enforceControlLockdown(interaction)) return;
+          log.info("honeypot dashboard opened");
+          await openDashboard(interaction);
+        } else {
+          log.debug("honeypot info button pressed");
+          await handleInfoButton(interaction);
+        }
+      } catch (err) {
+        log.warn("honeypot interaction error:", err.message);
       }
-    } catch (err) {
-      log.warn("honeypot interaction error:", err.message);
-    }
+    });
   });
 
-  client.on(Events.MessageCreate, handleHoneypotMessage);
+  client.on(Events.MessageCreate, (message) =>
+    runWithTraceContext(
+      createEventTraceContext({
+        guildId: message.guildId || null,
+        userId: message.author?.id || null,
+        channelId: message.channelId || null,
+        command: "messageCreate",
+      }),
+      () => handleHoneypotMessage(message)
+    )
+  );
 }
 
 module.exports = { registerHoneypot };

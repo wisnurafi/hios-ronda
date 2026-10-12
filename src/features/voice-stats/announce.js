@@ -183,7 +183,7 @@ async function announceFeature(client, guild, feature, weekStart) {
   try {
     await channel.send({ content, embeds: [embed] });
     updateFeatureConfig(guild.id, feature, { lastAnnouncedAt: Date.now() });
-    log(`ronda announce: ${feature} sent in ${guild.name} for week ${weekStart}`);
+    log.info("voice-stats announce sent", { feature, guild: guild.name, week: weekStart });
   } catch (err) {
     log.warn(`ronda announce: send failed (${feature}):`, err.message);
   }
@@ -194,10 +194,18 @@ async function announceFeature(client, guild, feature, weekStart) {
  * schedule is due, then prune old rows at most once a day.
  */
 let lastPruneDay = null;
+let announceTickCount = 0;
+const ANNOUNCE_HEARTBEAT_EVERY = 12; // ticks; at a 5-min interval this = 1 hour
 async function runDueAnnouncements(client) {
   if (!isEnabled()) return; // DB down: stay quiet, the reconnect loop handles it
   const now = Date.now();
   log.debug("voice-stats: due-check tick");
+  // Info-level heartbeat so the logs show the scheduler is alive even when
+  // nothing is due (healthy-but-quiet is indistinguishable from dead).
+  announceTickCount++;
+  if (announceTickCount % ANNOUNCE_HEARTBEAT_EVERY === 1) {
+    log(`voice-stats: alive — ${client.guilds.cache.size} guild(s), checking schedules every 5 min`);
+  }
   const lastWeek = weekStartWeeksAgo(now, 1);
   for (const [, guild] of client.guilds.cache) {
     const cfg = getGuildConfig(guild.id);

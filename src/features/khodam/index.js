@@ -9,7 +9,7 @@
  */
 
 const { Events } = require("discord.js");
-const { log } = require("../../log");
+const { log, runWithTraceContext, createInteractionTraceContext } = require("../../log");
 const { getConfig } = require("./store");
 const { enforceControlLockdown } = require("../control");
 const { ensureKhodamEmojis } = require("./emojis");
@@ -27,6 +27,7 @@ function registerKhodam(client) {
   client.once(Events.ClientReady, async (c) => {
     // Keep the posted panel in sync on (re)connect: fresh button emoji
     // after art swaps, latest copy.
+    let refreshed = 0;
     for (const [guildId, guild] of c.guilds.cache) {
       try {
         const emojis = await ensureKhodamEmojis(guild);
@@ -35,29 +36,40 @@ function registerKhodam(client) {
           await postOrRefreshPanel(guild, emojis).catch((err) =>
             log("khodam startup panel refresh error:", err.message)
           );
+          refreshed++;
         }
       } catch (err) {
         log("khodam startup error:", err.message);
       }
     }
+    log(`khodam: startup panel refresh done (${refreshed} panel(s) across ${c.guilds.cache.size} guild(s))`);
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (interaction.isChatInputCommand() && interaction.commandName === "khodam") {
-        if (await enforceControlLockdown(interaction)) return;
-        await openDashboard(interaction);
-      } else if (interaction.isButton() && interaction.customId.startsWith("hios_kh_")) {
-        await handleKhodamButton(interaction);
-      } else if (
-        (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) &&
-        interaction.customId.startsWith("hios_kh_")
-      ) {
-        await handleKhodamSelect(interaction);
+    const isDashboardCmd =
+      interaction.isChatInputCommand() && interaction.commandName === "khodam";
+    const isGameComponent =
+      (interaction.isButton() ||
+        interaction.isStringSelectMenu() ||
+        interaction.isUserSelectMenu()) &&
+      interaction.customId.startsWith("hios_kh_");
+    if (!isDashboardCmd && !isGameComponent) return;
+
+    await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+      try {
+        if (isDashboardCmd) {
+          if (await enforceControlLockdown(interaction)) return;
+          log.info("khodam dashboard opened");
+          await openDashboard(interaction);
+        } else if (interaction.isButton()) {
+          await handleKhodamButton(interaction);
+        } else {
+          await handleKhodamSelect(interaction);
+        }
+      } catch (err) {
+        log.warn("khodam interaction error:", err.message);
       }
-    } catch (err) {
-      log.warn("khodam interaction error:", err.message);
-    }
+    });
   });
 
   // Cancel a queued panel bump when the bot leaves/is removed from a guild.

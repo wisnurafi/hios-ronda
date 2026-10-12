@@ -107,7 +107,7 @@ async function ensureEmojis(guild, opts) {
     try {
       if (emoji && artChanged) {
         await emoji.delete(`hios-ronda ${feature} icon art updated`).catch(() => {});
-        log(`deleted stale emoji :${icon.name}:`);
+        log.debug(`emoji-sync: deleted stale :${icon.name}:`, { feature });
         emoji = null;
       }
       if (!emoji) {
@@ -117,7 +117,7 @@ async function ensureEmojis(guild, opts) {
           reason: `hios-ronda ${feature} icons`,
         });
         emoji = created;
-        log(`uploaded emoji :${icon.name}:`);
+        log.info("emoji-sync uploaded", { feature, emoji: `:${icon.name}:` });
       }
       out[key] = { id: emoji.id, name: emoji.name };
       newHashes[key] = currentHash;
@@ -127,6 +127,8 @@ async function ensureEmojis(guild, opts) {
     }
   }
 
+  const synced = Object.values(out).filter(Boolean).length;
+  log.info("emoji-sync done", { feature, synced, total: Object.keys(icons).length });
   updateConfig(guild.id, { emojis: out, emojiHashes: newHashes });
   return out;
 }

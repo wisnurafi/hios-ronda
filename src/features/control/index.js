@@ -14,7 +14,7 @@
  */
 
 const { Events, MessageFlags } = require("discord.js");
-const { log } = require("../../log");
+const { log, runWithTraceContext, createInteractionTraceContext } = require("../../log");
 const { isBotOwner } = require("../../owner");
 const { loadControlLockdown } = require("./store");
 const { checkControlLockdown } = require("./check");
@@ -46,9 +46,10 @@ async function enforceControlLockdown(interaction) {
     });
     if (!block) return false;
 
-    log(
-      `control lockdown blocked /${interaction.commandName} (${block.reason}) for ${interaction.user.tag} in ${interaction.guildId}`
-    );
+    log.info("control lockdown blocked", {
+      command: `/${interaction.commandName}`,
+      reason: block.reason,
+    });
     if (!interaction.deferred && !interaction.replied) {
       await interaction.reply({
         content: `🔒 ${block.message}`,
@@ -67,20 +68,22 @@ function registerControl(client, knownCommands = []) {
   KNOWN_COMMANDS = knownCommands;
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (interaction.isAutocomplete() && interaction.commandName === "control") {
-        await handleControlAutocomplete(interaction, KNOWN_COMMANDS);
-        return;
-      }
-      if (interaction.isChatInputCommand() && interaction.commandName === "control") {
+    if (!(interaction.isAutocomplete() || interaction.isChatInputCommand())) return;
+    if (interaction.commandName !== "control") return;
+    await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+      try {
+        if (interaction.isAutocomplete()) {
+          await handleControlAutocomplete(interaction, KNOWN_COMMANDS);
+          return;
+        }
         // /control is subject to the lockdown too, exactly like hios-bot
         // (owner bypasses; except /control if you always want it usable).
         if (await enforceControlLockdown(interaction)) return;
         await handleControlCommand(interaction, KNOWN_COMMANDS);
+      } catch (err) {
+        log.warn("control interaction error:", err.message);
       }
-    } catch (err) {
-      log.warn("control interaction error:", err.message);
-    }
+    });
   });
 }
 

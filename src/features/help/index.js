@@ -4,21 +4,21 @@
  */
 
 const { Events } = require("discord.js");
-const { log } = require("../../log");
+const { log, runWithTraceContext, createInteractionTraceContext } = require("../../log");
 const { enforceControlLockdown } = require("../control");
 const { handleHelpCommand } = require("./commands");
 
 function registerHelp(client) {
   client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (!interaction.isChatInputCommand()) return;
-      if (interaction.commandName === "help") {
+    if (!(interaction.isChatInputCommand() && interaction.commandName === "help")) return;
+    await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+      try {
         if (await enforceControlLockdown(interaction)) return;
         await handleHelpCommand(interaction);
+      } catch (err) {
+        log.warn("help interaction error:", err.message);
       }
-    } catch (err) {
-      log.warn("help interaction error:", err.message);
-    }
+    });
   });
 }
 

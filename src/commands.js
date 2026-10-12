@@ -24,11 +24,11 @@ const commandNames = allCommands.map((c) => c.name);
 async function deployCommands(client) {
   const rest = new REST({ version: "10" }).setToken(client.token);
   const body = allCommands.map((c) => c.toJSON());
-  const names = allCommands.map((c) => `/${c.name}`).join(", ");
   for (const [guildId, guild] of client.guilds.cache) {
+    const t0 = Date.now();
     try {
       await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body });
-      log(`deployed ${names} in ${guild.name}`);
+      log.info("commands deployed", { guild: guild.name, ms: Date.now() - t0 });
     } catch (err) {
       log.warn(`command deploy failed in ${guildId}: ${err.message}`);
     }

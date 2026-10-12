@@ -55,23 +55,26 @@ async function verifyMember(guild, userId) {
   }
 
   await member.roles.add(role.id, `Verified via button by ${member.user.tag}`);
-  log(`verified ${member.user.tag} in ${guild.name} (+${role.name})`);
+  log.info("verify member verified", { user: member.user.tag, role: role.name });
   return { status: "verified", roleName: role.name };
 }
 
 /** Button interaction entry point. */
 async function handleVerifyButton(interaction) {
+  const t0 = Date.now();
   // Ack first — role API calls can outlast Discord's 3s window.
   await interaction.deferReply(EPHEMERAL).catch(() => {});
 
   try {
     const result = await verifyMember(interaction.guild, interaction.user.id);
     if (result.status === "already_verified") {
+      log.debug("verify button: already verified", { ms: Date.now() - t0 });
       await interaction.editReply({
         content: "You're already verified. Nothing to do! ✅",
       });
       return;
     }
+    log.info("verify button", { role: result.roleName, ms: Date.now() - t0 });
     await interaction.editReply({
       content: `You're verified! You've been given the **${result.roleName}** role. Welcome! 🎉`,
     });

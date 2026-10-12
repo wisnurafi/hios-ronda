@@ -1,5 +1,10 @@
 const { Events } = require("discord.js");
-const { log } = require("../../log");
+const {
+  log,
+  runWithTraceContext,
+  createInteractionTraceContext,
+  createEventTraceContext,
+} = require("../../log");
 const { enforceControlLockdown } = require("../control");
 const { forEachState, deleteState } = require("./state");
 const { reconcile } = require("./reconcile");
@@ -25,11 +30,21 @@ function registerStreamwatch(client, config) {
   });
 
   client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-    try {
-      await handleVoiceStateUpdate(oldState, newState, client, config);
-    } catch (err) {
-      log.warn("voiceStateUpdate handler error:", err.message);
-    }
+    const guild = newState.guild ?? oldState.guild;
+    const member = newState.member ?? oldState.member;
+    const ctx = createEventTraceContext({
+      guildId: guild?.id || null,
+      userId: member?.id || null,
+      channelId: newState.channelId ?? oldState.channelId ?? null,
+      command: "voiceStateUpdate",
+    });
+    await runWithTraceContext(ctx, async () => {
+      try {
+        await handleVoiceStateUpdate(oldState, newState, client, config);
+      } catch (err) {
+        log.warn("voiceStateUpdate handler error:", err.message);
+      }
+    });
   });
 
   // Drop per-guild queue state when the bot leaves/is removed from a guild,
@@ -43,14 +58,16 @@ function registerStreamwatch(client, config) {
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (interaction.isChatInputCommand() && interaction.commandName === "watch") {
+    if (!(interaction.isChatInputCommand() && interaction.commandName === "watch")) return;
+    await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+      try {
         if (await enforceControlLockdown(interaction)) return;
+        log.info("watch dashboard opened");
         await handleWatchCommand(interaction);
+      } catch (err) {
+        log.warn("watch interaction error:", err.message);
       }
-    } catch (err) {
-      log.warn("watch interaction error:", err.message);
-    }
+    });
   });
 }
 

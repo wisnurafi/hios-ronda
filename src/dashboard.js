@@ -146,6 +146,7 @@ async function openDashboard(interaction, opts) {
 
   collector.on("collect", async (i) => {
     try {
+      log.debug(`${feature} dashboard component`, { customId: i.customId });
       await onComponent(i, guild, { render, rootInteraction: interaction });
     } catch (err) {
       log.warn(`${feature} dashboard component error:`, err.message);

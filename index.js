@@ -30,7 +30,7 @@ async function main() {
     // /github, /control, /ping, /verify, /khodam) deployed together in one
     // payload — guild PUT replaces the whole command list.
     deployCommands(c).catch((err) => log("deployCommands error:", err.message));
-    log(`online as ${c.user.tag}`);
+    log.info("ready", { user: c.user.tag, guilds: c.guilds.cache.size });
   });
 
   // --- features ---
@@ -47,6 +47,9 @@ async function main() {
   registerHelp(client);
   registerGithub(client);
   // registerYourNextFeature(client, config);
+  log.info("features registered", {
+    features: "control,ping,status,verify,khodam,streamwatch,honeypot,voice-stats,help,github",
+  });
 
   process.on("unhandledRejection", (err) => log("unhandled rejection:", err?.message || err));
   process.on("SIGINT", () => {
@@ -55,6 +58,7 @@ async function main() {
     process.exit(0);
   });
 
+  log.info("logging in...");
   await client.login(config.token);
 }
 

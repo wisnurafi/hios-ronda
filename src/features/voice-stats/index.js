@@ -11,7 +11,12 @@
 
 const { Events } = require("discord.js");
 const cron = require("node-cron");
-const { log } = require("../../log");
+const {
+  log,
+  runWithTraceContext,
+  createInteractionTraceContext,
+  createEventTraceContext,
+} = require("../../log");
 const { enforceControlLockdown } = require("../control");
 const { initDb, startReconnectLoop } = require("./db");
 const { handleVoiceStateUpdate, seedFromGuilds, clearGuildSessions } = require("./tracker");
@@ -52,11 +57,23 @@ function registerVoiceStats(client, config) {
   });
 
   client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-    try {
-      await handleVoiceStateUpdate(oldState, newState);
-    } catch (err) {
-      log.warn("voice-stats voiceStateUpdate error:", err.message);
-    }
+    const guild = newState.guild ?? oldState.guild;
+    const member = newState.member ?? oldState.member;
+    await runWithTraceContext(
+      createEventTraceContext({
+        guildId: guild?.id || null,
+        userId: member?.id || null,
+        channelId: newState.channelId ?? oldState.channelId ?? null,
+        command: "voiceStateUpdate",
+      }),
+      async () => {
+        try {
+          await handleVoiceStateUpdate(oldState, newState);
+        } catch (err) {
+          log.warn("voice-stats voiceStateUpdate error:", err.message);
+        }
+      }
+    );
   });
 
   // Drop tracked sessions when the bot leaves/is removed from a guild.
@@ -71,12 +88,24 @@ function registerVoiceStats(client, config) {
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (!interaction.isChatInputCommand()) return;
-      if (await enforceControlLockdown(interaction)) return;
-      if (interaction.commandName === "begadang") {
-        await handleBegadangCommand(interaction);
-      } else if (interaction.commandName === "rapot") {
-        await handleRapotCommand(interaction);
-      }
+      if (
+        interaction.commandName !== "begadang" &&
+        interaction.commandName !== "rapot"
+      )
+        return;
+      await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+        try {
+          if (await enforceControlLockdown(interaction)) return;
+          log.info(`${interaction.commandName} dashboard opened`);
+          if (interaction.commandName === "begadang") {
+            await handleBegadangCommand(interaction);
+          } else {
+            await handleRapotCommand(interaction);
+          }
+        } catch (err) {
+          log.warn("voice-stats interaction error:", err.message);
+        }
+      });
     } catch (err) {
       log.warn("voice-stats interaction error:", err.message);
     }

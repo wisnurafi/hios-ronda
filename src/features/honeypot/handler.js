@@ -114,6 +114,7 @@ async function applyPunishment(guild, member, userId, cfg, warnIcon) {
  * messageCreate handler — the actual trap.
  */
 async function handleHoneypotMessage(message) {
+  const t0 = Date.now();
   try {
     if (!message.guild) return;
     // Ignore our own messages. Other bots are NOT exempt —
@@ -174,7 +175,7 @@ async function handleHoneypotMessage(message) {
 
     // Exempt: delete + log, no punishment, no counter.
     if (exempt) {
-      log(`exempt user ${member.displayName} typed in honeypot — deleted, no punishment`);
+      log.info("honeypot exempt hit", { user: member.displayName, ms: Date.now() - t0 });
       await deliverLog(
         guild,
         cfg,
@@ -204,7 +205,11 @@ async function handleHoneypotMessage(message) {
     }
 
     await deliverLog(guild, cfg, hook, line);
-    log(`honeypot catch: ${userId} (${result.ok ? result.verbs?.past ?? "re-punished" : "not punished"})`);
+    log.info("honeypot catch", {
+      action: result.ok ? result.verbs?.past ?? "re-punished" : "not punished",
+      exempt: false,
+      ms: Date.now() - t0,
+    });
   } catch (err) {
     log.warn("honeypot handler error:", err.message);
   }

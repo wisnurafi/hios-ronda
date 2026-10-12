@@ -365,6 +365,7 @@ async function handleControlCommand(interaction, knownCommands) {
     const guildId = interaction.guild.id;
     const group = interaction.options.getSubcommandGroup(false);
     const sub = interaction.options.getSubcommand();
+    log.info("control command", { sub: group ? `${group} ${sub}` : sub });
 
     if (sub === "status" && !group) {
       return await handleStatus(interaction, guildId);

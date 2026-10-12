@@ -8,7 +8,7 @@
  */
 
 const { Events } = require("discord.js");
-const { log } = require("../../log");
+const { log, runWithTraceContext, createInteractionTraceContext } = require("../../log");
 const { getConfig } = require("./store");
 const { enforceControlLockdown } = require("../control");
 const { openDashboard } = require("./dashboard");
@@ -33,16 +33,23 @@ function registerVerify(client) {
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (interaction.isChatInputCommand() && interaction.commandName === "verify") {
-        if (await enforceControlLockdown(interaction)) return;
-        await openDashboard(interaction);
-      } else if (interaction.isButton() && interaction.customId === VERIFY_BUTTON_ID) {
-        await handleVerifyButton(interaction);
+    const isDashboardCmd =
+      interaction.isChatInputCommand() && interaction.commandName === "verify";
+    const isVerifyButton = interaction.isButton() && interaction.customId === VERIFY_BUTTON_ID;
+    if (!isDashboardCmd && !isVerifyButton) return;
+    await runWithTraceContext(createInteractionTraceContext(interaction), async () => {
+      try {
+        if (isDashboardCmd) {
+          if (await enforceControlLockdown(interaction)) return;
+          log.info("verify dashboard opened");
+          await openDashboard(interaction);
+        } else {
+          await handleVerifyButton(interaction);
+        }
+      } catch (err) {
+        log.warn("verify interaction error:", err.message);
       }
-    } catch (err) {
-      log.warn("verify interaction error:", err.message);
-    }
+    });
   });
 }
 
