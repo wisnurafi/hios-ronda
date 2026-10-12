@@ -12,13 +12,10 @@ const {
   ChannelType,
   ComponentType,
   MessageFlags,
-  PermissionFlagsBits,
 } = require("discord.js");
-const { log } = require("../../log");
+const { openDashboard: openDashboardShell } = require("../../dashboard");
 const { getWatchConfig, updateWatchConfig, DEFAULT_MESSAGE } = require("./store");
-const { isBotOwner } = require("../../owner");
 
-const SESSION_MS = 600_000; // 10 minutes, like the honeypot dashboard
 const id = (...parts) => `watch:${parts.join(":")}`;
 
 function buildEmbed(guild, cfg) {
@@ -85,14 +82,6 @@ function disabledComponents(guildId, cfg) {
   });
 }
 
-async function render(interaction, guild) {
-  const cfg = getWatchConfig(guild.id);
-  await interaction.editReply({
-    embeds: [buildEmbed(guild, cfg)],
-    components: mainComponents(guild.id, cfg),
-  });
-}
-
 function backRow(guildId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -129,65 +118,23 @@ async function showModal(interaction, modalId, title, inputs) {
  * Open the interactive watch dashboard (ephemeral).
  */
 async function openWatchDashboard(interaction) {
-  const guild = interaction.guild;
-  if (!guild) {
-    await interaction.reply({
-      content: "This command only works in a server.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
-  if (!isAdmin && !isBotOwner(interaction.user.id)) {
-    await interaction.reply({
-      content: "You need the **Administrator** permission (or be a bot owner) to manage watch settings.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const cfg = getWatchConfig(guild.id);
-  await interaction.reply({
-    embeds: [buildEmbed(guild, cfg)],
-    components: mainComponents(guild.id, cfg),
-    flags: MessageFlags.Ephemeral,
-  });
-
-  const reply = await interaction.fetchReply().catch(() => null);
-  if (!reply) return;
-
-  const collector = reply.createMessageComponentCollector({
-    filter: (i) => i.customId.startsWith("watch:") && i.user.id === interaction.user.id,
-    time: SESSION_MS,
-  });
-
-  collector.on("collect", async (i) => {
-    try {
-      await handleComponent(i, guild, interaction);
-    } catch (err) {
-      log.warn("watch dashboard component error:", err.message);
-      try {
-        if (!i.replied && !i.deferred) await i.deferUpdate();
-      } catch {}
-    }
-  });
-
-  collector.on("end", async () => {
-    try {
-      const c = getWatchConfig(guild.id);
-      const embed = buildEmbed(guild, c).setFooter({ text: "Dashboard closed due to inactivity" });
-      await interaction.editReply({
-        embeds: [embed],
-        components: disabledComponents(guild.id, c),
-      }).catch(() => {});
-    } catch {}
+  return openDashboardShell(interaction, {
+    prefix: "watch",
+    feature: "watch",
+    gateMessage:
+      "You need the **Administrator** permission (or be a bot owner) to manage watch settings.",
+    buildEmbed,
+    buildComponents: mainComponents,
+    buildDisabledComponents: disabledComponents,
+    getConfig: getWatchConfig,
+    onComponent: (i, guild, ctx) => handleComponent(i, guild, ctx),
   });
 }
 
-async function handleComponent(i, guild, rootInteraction) {
+async function handleComponent(i, guild, ctx) {
+  const { render: rerender, rootInteraction } = ctx;
   const [, kind, guildId] = i.customId.split(":");
   const cfg = getWatchConfig(guild.id);
-  const rerender = () => render(rootInteraction, guild);
 
   // ---- buttons ----
   if (i.componentType === ComponentType.Button) {

@@ -14,16 +14,14 @@ const {
   ChannelType,
   ComponentType,
   MessageFlags,
-  PermissionFlagsBits,
 } = require("discord.js");
 const { log } = require("../../log");
+const { openDashboard: openDashboardShell } = require("../../dashboard");
 const { getConfig, updateConfig } = require("./store");
-const { isBotOwner } = require("../../owner");
 const { setupHoneypot } = require("./setup");
 const { getLogsWebhook, forgetLogsWebhook } = require("./webhook");
 const { emojiMention } = require("./emojis");
 
-const SESSION_MS = 600_000; // 10 minutes, like hios-bot dashboards
 const id = (...parts) => `hp:${parts.join(":")}`;
 
 function actionLabel(cfg) {
@@ -133,14 +131,6 @@ function disabledComponents(guildId, cfg) {
   });
 }
 
-async function render(interaction, guild) {
-  const cfg = getConfig(guild.id);
-  await interaction.editReply({
-    embeds: [buildEmbed(guild, cfg)],
-    components: mainComponents(guild.id, cfg),
-  });
-}
-
 function backRow(guildId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -177,62 +167,23 @@ async function showModal(interaction, modalId, title, inputs) {
  * Open the interactive honeypot dashboard (ephemeral).
  */
 async function openDashboard(interaction) {
-  const guild = interaction.guild;
-  if (!guild) {
-    await interaction.reply({ content: "This command only works in a server.", flags: MessageFlags.Ephemeral });
-    return;
-  }
-  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
-  if (!isAdmin && !isBotOwner(interaction.user.id)) {
-    await interaction.reply({
-      content: "You need the **Administrator** permission (or be a bot owner) to manage the honeypot.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const cfg = getConfig(guild.id);
-  await interaction.reply({
-    embeds: [buildEmbed(guild, cfg)],
-    components: mainComponents(guild.id, cfg),
-    flags: MessageFlags.Ephemeral,
-  });
-
-  const reply = await interaction.fetchReply().catch(() => null);
-  if (!reply) return;
-
-  const collector = reply.createMessageComponentCollector({
-    filter: (i) => i.customId.startsWith("hp:") && i.user.id === interaction.user.id,
-    time: SESSION_MS,
-  });
-
-  collector.on("collect", async (i) => {
-    try {
-      await handleComponent(i, guild, interaction);
-    } catch (err) {
-      log.warn("dashboard component error:", err.message);
-      try {
-        if (!i.replied && !i.deferred) await i.deferUpdate();
-      } catch {}
-    }
-  });
-
-  collector.on("end", async () => {
-    try {
-      const c = getConfig(guild.id);
-      const embed = buildEmbed(guild, c).setFooter({ text: "Dashboard closed due to inactivity" });
-      await interaction.editReply({
-        embeds: [embed],
-        components: disabledComponents(guild.id, c),
-      }).catch(() => {});
-    } catch {}
+  return openDashboardShell(interaction, {
+    prefix: "hp",
+    feature: "honeypot",
+    gateMessage:
+      "You need the **Administrator** permission (or be a bot owner) to manage the honeypot.",
+    buildEmbed,
+    buildComponents: mainComponents,
+    buildDisabledComponents: disabledComponents,
+    getConfig,
+    onComponent: (i, guild, ctx) => handleComponent(i, guild, ctx),
   });
 }
 
-async function handleComponent(i, guild, rootInteraction) {
+async function handleComponent(i, guild, ctx) {
+  const { render: rerender, rootInteraction } = ctx;
   const [, kind, guildId, extra] = i.customId.split(":");
   const cfg = getConfig(guild.id);
-  const rerender = () => render(rootInteraction, guild);
 
   // ---- buttons ----
   if (i.componentType === ComponentType.Button) {
@@ -404,7 +355,6 @@ async function handleComponent(i, guild, rootInteraction) {
   if (kind === "pick") {
     const pickKind = guildId;
     const c = getConfig(guild.id);
-    const rerender = () => render(rootInteraction, guild);
 
     if (pickKind === "logs_channel") {
       updateConfig(guild.id, { logsChannelId: i.values[0] });

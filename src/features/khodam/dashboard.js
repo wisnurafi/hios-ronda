@@ -18,16 +18,13 @@ const {
   ChannelType,
   ComponentType,
   MessageFlags,
-  PermissionFlagsBits,
 } = require("discord.js");
-const { log } = require("../../log");
+const { openDashboard: openDashboardShell } = require("../../dashboard");
 const { getConfig, updateConfig } = require("./store");
-const { isBotOwner } = require("../../owner");
 const { ensureKhodamEmojis } = require("./emojis");
 const { postOrRefreshPanel, createKhodamChannel } = require("./panel");
 const { isEnabled: dbEnabled } = require("./db");
 
-const SESSION_MS = 600_000; // 10 minutes, like the other dashboards
 const id = (...parts) => `kh:${parts.join(":")}`;
 
 function buildEmbed(guild, cfg) {
@@ -87,14 +84,6 @@ function disabledComponents(guildId, cfg) {
   });
 }
 
-async function render(interaction, guild) {
-  const cfg = getConfig(guild.id);
-  await interaction.editReply({
-    embeds: [buildEmbed(guild, cfg)],
-    components: mainComponents(guild.id, cfg),
-  });
-}
-
 function backRow(guildId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(id("back", guildId)).setLabel("← Back").setStyle(ButtonStyle.Secondary)
@@ -102,60 +91,22 @@ function backRow(guildId) {
 }
 
 async function openDashboard(interaction) {
-  const guild = interaction.guild;
-  if (!guild) {
-    await interaction.reply({ content: "This command only works in a server.", flags: MessageFlags.Ephemeral });
-    return;
-  }
-  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
-  if (!isAdmin && !isBotOwner(interaction.user.id)) {
-    await interaction.reply({
-      content: "You need the **Administrator** permission (or be a bot owner) to manage the khodam game.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const cfg = getConfig(guild.id);
-  await interaction.reply({
-    embeds: [buildEmbed(guild, cfg)],
-    components: mainComponents(guild.id, cfg),
-    flags: MessageFlags.Ephemeral,
-  });
-
-  const reply = await interaction.fetchReply().catch(() => null);
-  if (!reply) return;
-
-  const collector = reply.createMessageComponentCollector({
-    filter: (i) => i.customId.startsWith("kh:") && i.user.id === interaction.user.id,
-    time: SESSION_MS,
-  });
-
-  collector.on("collect", async (i) => {
-    try {
-      await handleComponent(i, guild, interaction);
-    } catch (err) {
-      log.warn("khodam dashboard component error:", err.message);
-      try {
-        if (!i.replied && !i.deferred) await i.deferUpdate();
-      } catch {}
-    }
-  });
-
-  collector.on("end", async () => {
-    try {
-      const c = getConfig(guild.id);
-      const embed = buildEmbed(guild, c).setFooter({ text: "Dashboard closed due to inactivity" });
-      await interaction
-        .editReply({ embeds: [embed], components: disabledComponents(guild.id, c) })
-        .catch(() => {});
-    } catch {}
+  return openDashboardShell(interaction, {
+    prefix: "kh",
+    feature: "khodam",
+    gateMessage:
+      "You need the **Administrator** permission (or be a bot owner) to manage the khodam game.",
+    buildEmbed,
+    buildComponents: mainComponents,
+    buildDisabledComponents: disabledComponents,
+    getConfig,
+    onComponent: (i, guild, ctx) => handleComponent(i, guild, ctx),
   });
 }
 
-async function handleComponent(i, guild, rootInteraction) {
+async function handleComponent(i, guild, ctx) {
+  const { render: rerender, rootInteraction } = ctx;
   const [, kind, guildId] = i.customId.split(":");
-  const rerender = () => render(rootInteraction, guild);
 
   if (i.componentType === ComponentType.Button) {
     if (kind === "toggle") {

@@ -24,16 +24,12 @@ const {
   ChannelType,
   ComponentType,
   MessageFlags,
-  PermissionFlagsBits,
 } = require("discord.js");
-const { log } = require("../../log");
-const { isBotOwner } = require("../../owner");
+const { openDashboard: openDashboardShell } = require("../../dashboard");
 const { isEnabled: isDbEnabled, topNightOwls, weekRows } = require("./db");
 const { getGuildConfig, updateFeatureConfig, DEFAULT_BEGADANG_MESSAGE, DEFAULT_RAPOT_MESSAGE } = require("./store");
 const { renderTemplate, buildBegadangEmbed, buildRapotEmbed, commonVars } = require("./announce");
 const { weekStartOf } = require("./time");
-
-const SESSION_MS = 600_000; // 10 minutes, like the other dashboards
 
 const FEATURES = {
   begadang: {
@@ -186,58 +182,16 @@ function scheduleComponents(feature, guildId, schedule) {
 }
 
 async function openDashboard(interaction, feature) {
-  const guild = interaction.guild;
-  if (!guild) {
-    await interaction.reply({
-      content: "This command only works in a server.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-  const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
-  if (!isAdmin && !isBotOwner(interaction.user.id)) {
-    await interaction.reply({
-      content: "You need the **Administrator** permission (or be a bot owner) to manage these settings.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const cfg = getGuildConfig(guild.id)[feature];
-  await interaction.reply({
-    embeds: [buildEmbed(guild, feature, cfg)],
-    components: mainComponents(feature, guild.id, cfg),
-    flags: MessageFlags.Ephemeral,
-  });
-
-  const reply = await interaction.fetchReply().catch(() => null);
-  if (!reply) return;
-
-  const collector = reply.createMessageComponentCollector({
-    filter: (i) => i.customId.startsWith(`${feature}:`) && i.user.id === interaction.user.id,
-    time: SESSION_MS,
-  });
-
-  collector.on("collect", async (i) => {
-    try {
-      await handleComponent(i, guild, interaction, feature);
-    } catch (err) {
-      log.warn(`${feature} dashboard component error:`, err.message);
-      try {
-        if (!i.replied && !i.deferred) await i.deferUpdate();
-      } catch {}
-    }
-  });
-
-  collector.on("end", async () => {
-    try {
-      const c = getGuildConfig(guild.id)[feature];
-      const embed = buildEmbed(guild, feature, c).setFooter({ text: "Dashboard closed due to inactivity" });
-      await interaction.editReply({
-        embeds: [embed],
-        components: disabledComponents(feature, guild.id, c),
-      }).catch(() => {});
-    } catch {}
+  return openDashboardShell(interaction, {
+    prefix: feature,
+    feature,
+    gateMessage:
+      "You need the **Administrator** permission (or be a bot owner) to manage these settings.",
+    buildEmbed: (guild, cfg) => buildEmbed(guild, feature, cfg),
+    buildComponents: (guildId, cfg) => mainComponents(feature, guildId, cfg),
+    buildDisabledComponents: (guildId, cfg) => disabledComponents(feature, guildId, cfg),
+    getConfig: (guildId) => getGuildConfig(guildId)[feature],
+    onComponent: (i, guild, ctx) => handleComponent(i, guild, ctx, feature),
   });
 }
 
@@ -300,17 +254,11 @@ async function showMessageModal(i, feature, guildId, cfg) {
   return submitted;
 }
 
-async function handleComponent(i, guild, rootInteraction, feature) {
+async function handleComponent(i, guild, ctx, feature) {
+  const { render: rerender, rootInteraction } = ctx;
   const parts = i.customId.split(":");
   const kind = parts[1];
   const cfg = getGuildConfig(guild.id)[feature];
-  const rerender = async () => {
-    const c = getGuildConfig(guild.id)[feature];
-    await rootInteraction.editReply({
-      embeds: [buildEmbed(guild, feature, c)],
-      components: mainComponents(feature, guild.id, c),
-    });
-  };
 
   // ---- buttons ----
   if (i.componentType === ComponentType.Button) {

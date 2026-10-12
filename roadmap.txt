@@ -35,6 +35,11 @@ src/
 - emoji-sync.js               -> ensureEmojis(): shared hash-tracked custom-emoji
                                sync (upload, reuse by name, auto-refresh on art
                                change, unicode fallback); emojiMention() helper
+- dashboard.js                -> openDashboard(): shared dashboard shell
+                               (ephemeral, admin-or-owner gate, 10-min
+                               auto-close). Features pass buildEmbed /
+                               buildComponents / onComponent; the shell owns
+                               the collector wiring.
 
 - features/                   -> one folder per feature, each with index.js exposing
                                register(client, config); slash commands in commands.js
