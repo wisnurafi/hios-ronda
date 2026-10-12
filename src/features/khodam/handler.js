@@ -21,7 +21,6 @@ const {
 } = require("discord.js");
 const { log } = require("../../log");
 const { getConfig } = require("./store");
-const { emojiMention, ensureKhodamEmojis } = require("./emojis");
 const { bumpPanelToBottom } = require("./panel");
 const { pickKhodam, getKhodam, tierOf } = require("./roster");
 const { simulateDuel } = require("./battle");
@@ -72,14 +71,33 @@ function keyOf(interaction) {
  * Fire-and-forget: after a public game result, move the panel back to the
  * bottom of the channel so it never gets buried. Never throws and never
  * blocks the interaction that triggered it.
+ *
+ * Bumps are debounced per guild: rapid game bursts (many rolls/duels in a
+ * row) collapse into ONE delete+repost instead of one per click — each bump
+ * re-uploads 2 PNG attachments, so uncoalesced bumps are the heaviest API
+ * churn in the bot. The trailing bump still guarantees the panel ends up at
+ * the bottom after the burst.
  */
+const BUMP_DEBOUNCE_MS = 10_000;
+const scheduledBumps = new Map(); // guildId -> Timeout
+
 function bumpPanel(interaction) {
   try {
     const guild = interaction.guild;
     if (!guild) return;
-    ensureKhodamEmojis(guild)
-      .then((emojis) => bumpPanelToBottom(guild, emojis))
-      .catch((err) => log.warn("khodam bump failed:", err.message));
+    if (scheduledBumps.has(guild.id)) return; // one already queued for this burst
+    const t = setTimeout(() => {
+      scheduledBumps.delete(guild.id);
+      try {
+        // Emojis come from the stored config (ensured at startup / panel
+        // post) — no emoji re-sync on the hot path.
+        bumpPanelToBottom(guild).catch((err) => log.warn("khodam bump failed:", err.message));
+      } catch (err) {
+        log.warn("khodam bump failed:", err.message);
+      }
+    }, BUMP_DEBOUNCE_MS);
+    t.unref?.(); // cosmetic bump must not hold the process open
+    scheduledBumps.set(guild.id, t);
   } catch (err) {
     log.warn("khodam bump failed:", err.message);
   }

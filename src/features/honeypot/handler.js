@@ -168,8 +168,6 @@ async function handleHoneypotMessage(message) {
       components: [jumpRow],
     });
 
-    await message.delete().catch(() => {});
-
     // Exempt: delete + log, no punishment, no counter.
     if (exempt) {
       log(`exempt user ${member.displayName} typed in honeypot — deleted, no punishment`);

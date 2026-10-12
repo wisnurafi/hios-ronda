@@ -30,40 +30,41 @@ CREATE TABLE IF NOT EXISTS ronda_voice_stats (
 db.registerSchema("voice-stats", SCHEMA);
 
 /**
- * Record one finished voice session. Read-modify-write in JS (single
- * process, low write volume) so per-channel minutes merge correctly.
+ * Record one finished voice session.
+ *
+ * The write runs in a transaction with SELECT ... FOR UPDATE, so two
+ * sessions for the same user ending at the same time serialize on the row
+ * lock instead of both reading the same stale `prev` row (the old
+ * read-modify-write outside a transaction could lose minutes that way).
+ * If both racers find no row and collide on INSERT, the loser retries once
+ * as an UPDATE. Merge logic itself is unchanged.
  */
 async function recordSession({ guildId, userId, weekStart, minutes, nightMinutes, channelId }) {
   if (!db.isEnabled()) return;
-  try {
-    const { rows } = await db.getPool().query(
-      `SELECT total_minutes, night_minutes, sessions, longest_session_minutes, channels
-         FROM ronda_voice_stats
-        WHERE guild_id = $1 AND user_id = $2 AND week_start = $3`,
-      [guildId, userId, weekStart]
-    );
-    const prev = rows[0] || {
-      total_minutes: 0,
-      night_minutes: 0,
-      sessions: 0,
-      longest_session_minutes: 0,
-      channels: {},
-    };
-    const channels = { ...(prev.channels || {}) };
-    if (channelId) channels[channelId] = (channels[channelId] || 0) + minutes;
-    await db.getPool().query(
-      `INSERT INTO ronda_voice_stats
-         (guild_id, user_id, week_start, total_minutes, night_minutes,
-          sessions, longest_session_minutes, channels, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,NOW())
-       ON CONFLICT (guild_id, user_id, week_start) DO UPDATE SET
-         total_minutes = EXCLUDED.total_minutes,
-         night_minutes = EXCLUDED.night_minutes,
-         sessions = EXCLUDED.sessions,
-         longest_session_minutes = EXCLUDED.longest_session_minutes,
-         channels = EXCLUDED.channels,
-         updated_at = NOW()`,
-      [
+  const pool = db.getPool();
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let client = null;
+    try {
+      client = await pool.connect();
+      await client.query("BEGIN");
+      const { rows } = await client.query(
+        `SELECT total_minutes, night_minutes, sessions, longest_session_minutes, channels
+           FROM ronda_voice_stats
+          WHERE guild_id = $1 AND user_id = $2 AND week_start = $3
+          FOR UPDATE`,
+        [guildId, userId, weekStart]
+      );
+      const prev = rows[0] || {
+        total_minutes: 0,
+        night_minutes: 0,
+        sessions: 0,
+        longest_session_minutes: 0,
+        channels: {},
+      };
+      const channels = { ...(prev.channels || {}) };
+      if (channelId) channels[channelId] = (channels[channelId] || 0) + minutes;
+      const vals = [
         guildId,
         userId,
         weekStart,
@@ -72,10 +73,36 @@ async function recordSession({ guildId, userId, weekStart, minutes, nightMinutes
         prev.sessions + 1,
         Math.max(prev.longest_session_minutes, minutes),
         JSON.stringify(channels),
-      ]
-    );
-  } catch (err) {
-    log.warn("voice-stats db: recordSession failed:", err.message);
+      ];
+      if (rows[0]) {
+        await client.query(
+          `UPDATE ronda_voice_stats
+              SET total_minutes = $4, night_minutes = $5, sessions = $6,
+                  longest_session_minutes = $7, channels = $8::jsonb, updated_at = NOW()
+            WHERE guild_id = $1 AND user_id = $2 AND week_start = $3`,
+          vals
+        );
+      } else {
+        await client.query(
+          `INSERT INTO ronda_voice_stats
+             (guild_id, user_id, week_start, total_minutes, night_minutes,
+              sessions, longest_session_minutes, channels, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,
+          vals
+        );
+      }
+      await client.query("COMMIT");
+      return;
+    } catch (err) {
+      if (client) await client.query("ROLLBACK").catch(() => {});
+      // Lost the insert race (row appeared between our SELECT and INSERT):
+      // retry once — the row exists now, so this becomes an UPDATE.
+      if (err && err.code === "23505" && attempt === 1) continue;
+      log.warn("voice-stats db: recordSession failed:", err.message);
+      return;
+    } finally {
+      if (client) client.release();
+    }
   }
 }
 

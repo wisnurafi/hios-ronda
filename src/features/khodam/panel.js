@@ -171,12 +171,17 @@ const bumpQueues = new Map();
 /**
  * Queue a panel bump for this guild. Fire-and-forget safe: never throws,
  * never blocks the game interaction that triggered it.
+ *
+ * `emojis` is optional — when omitted, the stored emoji set from config is
+ * used (it is ensured at startup and whenever the panel is (re)posted from
+ * the dashboard, so the hot bump path doesn't need its own emoji sync).
  */
 function bumpPanelToBottom(guild, emojis) {
+  const emo = emojis || getConfig(guild.id).emojis || {};
   const prev = bumpQueues.get(guild.id) || Promise.resolve();
   const next = prev
     .catch(() => {})
-    .then(() => repostPanel(guild, emojis))
+    .then(() => repostPanel(guild, emo))
     .catch((err) => log.warn("khodam panel bump failed:", err.message));
   bumpQueues.set(guild.id, next);
   next.finally(() => {

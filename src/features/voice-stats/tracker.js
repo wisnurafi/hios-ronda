@@ -23,11 +23,16 @@ function isBot(member) {
   }
 }
 
-async function endSession(guildId, userId) {
+/** Synchronously take (get + remove) the active session, if any. */
+function takeSession(guildId, userId) {
   const k = key(guildId, userId);
   const s = sessions.get(k);
   sessions.delete(k);
-  if (!s) return;
+  return s || null;
+}
+
+/** Persist a finished session to the DB (async write; never throws). */
+async function persistSession(guildId, userId, s) {
   const endedAt = Date.now();
   const minutes = minutesBetween(s.joinedAt, endedAt);
   if (minutes <= 0) return; // ignore sub-minute blips
@@ -41,6 +46,11 @@ async function endSession(guildId, userId) {
     channelId: s.channelId,
   });
   log.debug(`ronda: session recorded ${userId}: ${minutes}m (${nightMinutes}m night)`);
+}
+
+async function endSession(guildId, userId) {
+  const s = takeSession(guildId, userId);
+  if (s) await persistSession(guildId, userId, s);
 }
 
 function startSession(guildId, userId, channelId) {
@@ -68,8 +78,12 @@ async function handleVoiceStateUpdate(oldState, newState) {
     } else if (!oldChannelId && newChannelId) {
       startSession(guildId, userId, newChannelId); // joined voice
     } else if (oldChannelId && newChannelId && oldChannelId !== newChannelId) {
-      await endSession(guildId, userId); // moved: close old, open new
+      // moved: close old, open new. Map updates stay synchronous so a rapid
+      // follow-up event (e.g. an immediate leave) can't slip into the gap
+      // between closing the old session and opening the new one.
+      const s = takeSession(guildId, userId);
       startSession(guildId, userId, newChannelId);
+      if (s) await persistSession(guildId, userId, s);
     }
     // mute/deafen/stream toggles: session continues untouched
   } catch (err) {

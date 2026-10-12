@@ -16,7 +16,19 @@ async function handleVoiceStateUpdate(oldState, newState, client, config) {
   if (!guild) return;
 
   const member = newState.member ?? oldState.member;
-  if (!member || member.user.bot) return; // never track bots (incl. ourselves)
+  if (!member) return;
+
+  // Our own voice state: an admin (or Discord) may disconnect/move the bot
+  // manually. Sync presenceChannelId so reconcile() doesn't believe we're
+  // still in the old channel forever, then re-assert the queue — reconcile()
+  // no-ops when we're already where the queue head is.
+  if (member.id === client.user?.id) {
+    getState(guild.id).presenceChannelId = newState.channelId ?? null;
+    await reconcile(guild);
+    refreshWatchStatus(client, config);
+    return;
+  }
+  if (member.user.bot) return; // never track other bots
 
   const userId = member.id;
   const wasStreaming = !!oldState.streaming;
