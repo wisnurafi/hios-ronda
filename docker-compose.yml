@@ -1,0 +1,10 @@
+services:
+  hios-ronda:
+    build: .
+    container_name: hios-ronda
+    env_file:
+      - .env
+    volumes:
+      # Persist runtime state (per-guild config, poll state) across recreates.
+      - ./data:/usr/src/app/data
+    restart: unless-stopped

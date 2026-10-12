@@ -39,6 +39,16 @@ Before starting a large feature, open an issue so we can align on scope and avoi
    node --test src/features/khodam/khodam.test.js
    ```
 
+Alternatively, run it containerized:
+
+```bash
+cp .env.example .env
+# fill in BOT_TOKEN in .env
+docker compose up -d --build
+```
+
+`./data` is mounted as a volume so runtime state survives container recreates.
+
 ## Project conventions
 
 New features go under `src/features/<name>/` with an `index.js` exposing `register(client, config)`, then one line in the root `index.js`. See `roadmap.txt` for the full structure map.

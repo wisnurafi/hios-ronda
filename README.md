@@ -149,6 +149,18 @@ npm start
 
 Node.js 20+ required.
 
+### Docker (for self-hosters)
+
+If you'd rather run it containerized:
+
+```bash
+cp .env.example .env
+# fill in BOT_TOKEN in .env
+docker compose up -d --build
+```
+
+`./data` is mounted as a volume so per-guild config and poll state survive container recreates. Panel hosts (e.g. Wispbyte) don't need this — just `npm start` as above; the Docker files are inert there.
+
 ## Project structure
 
 ```

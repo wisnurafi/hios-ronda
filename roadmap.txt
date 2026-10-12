@@ -12,6 +12,9 @@ Root
 - SECURITY.md                 -> security policy
 - LICENSE                   -> MIT license
 - roadmap.txt                 -> this file
+- Dockerfile                  -> container image (node:20-alpine, gateway-only, no EXPOSE)
+- docker-compose.yml          -> self-host stack (env_file .env, ./data volume, restart unless-stopped)
+- .dockerignore               -> keep node_modules/.env/data out of the image
 - .env.example                -> all env vars with explanations
 - data/                       -> runtime JSON config/state (fail-open, gitignored)
 - docs/                       -> deep-dive notes (github-logs, voice-stats, rich-presence)
